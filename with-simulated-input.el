@@ -45,6 +45,7 @@
 (require 'cl-lib)
 (require 'seq)
 
+;;;###autoload
 (defmacro with-simulated-input (keys &rest body)
   "Eval BODY forms with KEYS as simulated input.
 
