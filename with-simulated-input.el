@@ -6,7 +6,7 @@
 ;; Author: Ryan C. Thompson
 ;; Created: Thu Jul 20 11:56:23 2017 (-0700)
 ;; Version: 1.0
-;; Package-Requires: ((seq "0"))
+;; Package-Requires: ((emacs "24.4") (seq "0"))
 ;; URL: 
 ;; Keywords: 
 
