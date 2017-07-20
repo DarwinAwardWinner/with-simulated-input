@@ -7,14 +7,14 @@
 ;; Created: Thu Jul 20 11:56:23 2017 (-0700)
 ;; Version: 1.0
 ;; Package-Requires: ((emacs "24.4") (seq "2.0"))
-;; URL: 
+;; URL:
 ;; Keywords: lisp, tools, extensions
 
 ;; This file is NOT part of GNU Emacs.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 
-;;; Commentary: 
+;;; Commentary:
 
 ;; This package provides a single macro, `with-simulated-input', which
 ;; evaluates one or more forms while simulating a sequence of input
