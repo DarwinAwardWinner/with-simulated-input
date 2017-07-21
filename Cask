@@ -9,5 +9,8 @@
 (depends-on "seq")
 
 (development
- (depends-on "f")
- (depends-on "ert-runner"))
+ (depends-on "buttercup"
+             :git "https://github.com/DarwinAwardWinner/emacs-buttercup.git"
+             :branch "show-exprs"
+             :files ("*.el"
+                     ("bin" "bin/*"))))
