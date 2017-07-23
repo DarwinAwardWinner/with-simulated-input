@@ -217,8 +217,8 @@ While executing `wsi-simulate-idle-time', this advice causes the
 simulated idle time to be returned instead of the real value."
   (if wsi-simulated-idle-time
       (setq ad-return-value
-            (when (> (float-time wsi-simulated-idle-time) 0)
-              (seconds-to-time wsi-simulated-idle-time)))
+            (when (time-less-p (seconds-to-time 0) wsi-simulated-idle-time)
+              wsi-simulated-idle-time))
     ad-do-it))
 
 (cl-defun wsi-simulate-idle-time (secs &optional actually-wait)
@@ -235,8 +235,8 @@ overridden to return the current simulated idle time."
    "nSeconds of idle time: \nP")
   (cl-loop
    with already-run-timers = nil
-   with stop-time = (float-time secs)
-   with wsi-simulated-idle-time = 0.0
+   with stop-time = (seconds-to-time secs)
+   with wsi-simulated-idle-time = (seconds-to-time 0)
    ;; We have to search `timer-idle-list' from the beginning each time
    ;; through the loop because each timer that runs might add more
    ;; timers to the list, and picking up at the same list position
@@ -246,8 +246,10 @@ overridden to return the current simulated idle time."
                           timer-idle-list))
    while next-timer
    for previous-idle-time = wsi-simulated-idle-time
-   maximize (float-time (timer--time next-timer))
-   into wsi-simulated-idle-time
+   if (time-less-p wsi-simulated-idle-time
+                   (timer--time next-timer))
+   do (setq wsi-simulated-idle-time
+                   (timer--time next-timer))
    when actually-wait
    do (sleep-for (float-time (time-subtract wsi-simulated-idle-time
                                             previous-idle-time)))
