@@ -3,13 +3,12 @@
 [![Build Status](https://travis-ci.org/DarwinAwardWinner/with-simulated-input.svg?branch=master)](https://travis-ci.org/DarwinAwardWinner/with-simulated-input)
 <!-- (Not in MELPA yet) [![MELPA Stable](https://stable.melpa.org/packages/with-simulated-input-badge.svg)](https://stable.melpa.org/#/with-simulated-input) -->
 
-This package provides a single Emacs Lisp macro,
-`with-simulated-input`, which evaluates one or more forms while
-simulating a sequence of input events for those forms to read. The
-result is the same as if you had evaluated the forms and then manually
-typed in the same input. This macro is useful for non-interactive
-testing of normally interactive commands and functions, such as
-`completing-read`.
+This package provides an Emacs Lisp macro, `with-simulated-input`,
+which evaluates one or more forms while simulating a sequence of input
+events for those forms to read. The result is the same as if you had
+evaluated the forms and then manually typed in the same input. This
+macro is useful for non-interactive testing of normally interactive
+commands and functions, such as `completing-read`.
 
 For example:
 
@@ -20,6 +19,29 @@ For example:
 ```
 
 This would return the string `"hello world"`.
+
+## Simulating idleness
+
+Some interactive functions rely on idle timers to do their work, so
+you might need a way to simulate idleness. For that, there is the
+`wsi-simulate-idle-time` function. You can insert calls to this
+function in between input strings. For example, the following code
+will return `"hello world"`.
+
+```elisp
+;; Insert "world" after 500 seconds
+(run-with-idle-timer 500 nil 'insert "world")
+(with-simulated-input
+    ;; Type "hello ", then "wait" 501 seconds, then type "RET"
+    '("hello SPC" (wsi-simulate-idle-time 501) "RET")
+  (read-string "Enter a string: "))
+```
+
+Note that this code only *pretends* to be idle for 501 seconds. It
+actually runs immediately.
+
+In fact, you can put any lisp code in between input strings
+in this way.
 
 <!-- Get it from MELPA: https://stable.melpa.org/#/with-simulated-input -->
 
