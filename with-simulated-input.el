@@ -210,7 +210,7 @@ in `progn'."
 
 (defvar wsi-simulated-idle-time nil)
 
-(defadvice current-idle-time (around simulat-idle-time activate)
+(defadvice current-idle-time (around simulate-idle-time activate)
   "Return the faked value while simulating idle time.
 
 While executing `wsi-simulate-idle-time', this advice causes the
