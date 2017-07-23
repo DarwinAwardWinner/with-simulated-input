@@ -1,7 +1,6 @@
 # with-simulated-input
 
-[![Build Status](https://travis-ci.org/DarwinAwardWinner/with-simulated-input.svg?branch=master)](https://travis-ci.org/DarwinAwardWinner/with-simulated-input)
-<!-- (Not in MELPA yet) [![MELPA Stable](https://stable.melpa.org/packages/with-simulated-input-badge.svg)](https://stable.melpa.org/#/with-simulated-input) -->
+[![Build Status](https://travis-ci.org/DarwinAwardWinner/with-simulated-input.svg?branch=master)](https://travis-ci.org/DarwinAwardWinner/with-simulated-input) [![MELPA Stable](https://stable.melpa.org/packages/with-simulated-input-badge.svg)](https://stable.melpa.org/#/with-simulated-input)
 
 This package provides an Emacs Lisp macro, `with-simulated-input`,
 which evaluates one or more forms while simulating a sequence of input
@@ -43,7 +42,7 @@ actually runs immediately.
 In fact, you can put any lisp code in between input strings
 in this way.
 
-<!-- Get it from MELPA: https://stable.melpa.org/#/with-simulated-input -->
+Get it from MELPA: https://stable.melpa.org/#/with-simulated-input
 
 ## Running the tests
 
