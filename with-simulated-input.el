@@ -208,6 +208,58 @@ in `progn'."
          (error "Reached end of simulated input while evaluating body")
        result)))
 
+(defvar wsi-simulated-idle-time nil)
+
+(defadvice current-idle-time (around simulat-idle-time activate)
+  "Return the faked value while simulating idle time.
+
+While executing `wsi-simulate-idle-time', this advice causes the
+simulated idle time to be returned instead of the real value."
+  (if wsi-simulated-idle-time
+      (setq ad-return-value
+            (when (> (float-time wsi-simulated-idle-time) 0)
+              (seconds-to-time wsi-simulated-idle-time)))
+    ad-do-it))
+
+(cl-defun wsi-simulate-idle-time (secs &optional actually-wait)
+  "Run all idle timers with delay less than SECS.
+
+This simulates resetting the idle time to zero and then being
+idle for SECS seconds. If ACTUALLY-WAIT is non-nil, this function
+will also wait for the specified amount of time before running
+each timers.
+
+While each timer is running, `current-idle-time' will be
+overridden to return the current simulated idle time."
+  (interactive
+   "nSeconds of idle time: \nP")
+  (cl-loop
+   with already-run-timers = nil
+   with stop-time = (float-time secs)
+   with wsi-simulated-idle-time = 0.0
+   ;; We have to search `timer-idle-list' from the beginning each time
+   ;; through the loop because each timer that runs might add more
+   ;; timers to the list, and picking up at the same list position
+   ;; would ignore those new timers.
+   for next-timer = (car (cl-member-if-not
+                          (lambda (timer) (memq timer already-run-timers))
+                          timer-idle-list))
+   while next-timer
+   for previous-idle-time = wsi-simulated-idle-time
+   maximize (float-time (timer--time next-timer))
+   into wsi-simulated-idle-time
+   when actually-wait
+   do (sleep-for (float-time (time-subtract wsi-simulated-idle-time
+                                            previous-idle-time)))
+   while (time-less-p wsi-simulated-idle-time stop-time)
+   when (not (timer--triggered next-timer))
+   do (timer-event-handler next-timer)
+   do (push next-timer already-run-timers)
+   finally do
+   (when actually-wait
+     (sleep-for (float-time (time-subtract stop-time
+                                           wsi-simulated-idle-time))))))
+
 (provide 'with-simulated-input)
 
 ;;; with-simulated-input.el ends here

@@ -90,4 +90,48 @@
          (read-string "Enter a string: "))
        :to-equal "hello world"))))
 
+(defun idle-canary ())
+(defvar timers-to-cancel nil)
+(defvar orig-timer--activate (symbol-function 'timer--activate))
+
+(describe "`wsi-simulate-idle-time'"
+  (spy-on 'idle-canary)
+  (spy-on 'timer--activate
+          :and-call-fake
+          (lambda (timer &rest args)
+            (push timer timers-to-cancel)
+            (apply orig-timer--activate timer args)))
+  (after-each
+    (mapcar #'cancel-timer timers-to-cancel)
+    (setq timers-to-cancel nil)
+    (spy-calls-reset 'idle-canary))
+  (it "should run idle timers"
+    (run-with-idle-timer 500 nil 'idle-canary)
+    (wsi-simulate-idle-time 501)
+    (expect 'idle-canary :to-have-been-called))
+  (it "should not run idle times with longer times"
+    (run-with-idle-timer 500 nil 'set 'idle-canary)
+    (wsi-simulate-idle-time 100)
+    (expect 'idle-canary :not :to-have-been-called))
+  (it "should run idle timers added by other idle timers"
+    (run-with-idle-timer
+     100 nil 'run-with-idle-timer
+     200 nil 'idle-canary)
+    (wsi-simulate-idle-time 500)
+    (expect 'idle-canary :to-have-been-called))
+  (it "should run idle timers added by other idle timers when the new timer is in the past"
+    (run-with-idle-timer
+     100 nil 'run-with-idle-timer
+     50 nil 'idle-canary)
+    (wsi-simulate-idle-time 500)
+    (expect 'idle-canary :to-have-been-called))
+
+  (describe "used within `with-simulated-input'"
+    (it "should allow idle timers to trigger during simulated input"
+      (run-with-idle-timer 500 nil 'insert "world")
+      (expect
+       (with-simulated-input '("hello SPC" (wsi-simulate-idle-time 501) "RET")
+         (read-string "Enter a string: "))
+       :to-equal "hello world"))))
+
 ;;; test-with-simulated-input.el ends here
