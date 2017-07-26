@@ -53,16 +53,16 @@ This function checks every keymap in `obarray' for a binding for
 KEY, and returns t if it finds and and nil otherwise. Note that
 this checks ALL keymaps, not just currently active ones."
   (catch 'bound
-  (mapatoms
-   (lambda (sym)
-     (let ((keymap
-            (when (boundp sym)
-              (symbol-value sym))))
-       (when (keymapp keymap)
-         (let ((binding (lookup-key keymap (kbd key))))
-           (when binding
-             (throw 'bound t)))))))
-  (throw 'bound nil)))
+    (mapatoms
+     (lambda (sym)
+       (let ((keymap
+              (when (boundp sym)
+                (symbol-value sym))))
+         (when (keymapp keymap)
+           (let ((binding (lookup-key keymap (kbd key))))
+             (when binding
+               (throw 'bound t)))))))
+    (throw 'bound nil)))
 
 (cl-defun wsi-get-unbound-key
     (&optional (modifiers '("C-M-A-s-H-" "C-M-A-s-" "C-M-A-H-"))
