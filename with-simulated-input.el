@@ -109,7 +109,7 @@ to check.
    if (stringp action)
    collect action into full-key-sequence
    else
-   collect action into action-list and
+   collect `(lambda () ,action) into action-list and
    collect exec-form-keybind into full-key-sequence
    finally return
    (list :keys (s-join " " full-key-sequence)
@@ -118,7 +118,7 @@ to check.
 (defvar wsi-action-list nil)
 
 (defun wsi-run-next-action ()
-  "Pop and eval the next element in `wsi-action-list'.
+  "Pop and call the next function in `wsi-action-list'.
 
 If the action list is empty, run `(keyboard-quit)' instead."
   (interactive)
@@ -126,7 +126,7 @@ If the action list is empty, run `(keyboard-quit)' instead."
       (if wsi-action-list
           (let ((next-action (pop wsi-action-list)))
             ;; (message "Executing `%S'" next-action)
-            (eval next-action))
+            (funcall next-action))
         (error "Reached end of `wsi-action-list'."))
     (error (throw 'wsi-threw-error err))))
 
