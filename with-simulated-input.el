@@ -225,9 +225,11 @@ simulated idle time to be returned instead of the real value."
   "Run all idle timers with delay less than SECS.
 
 This simulates resetting the idle time to zero and then being
-idle for SECS seconds. If ACTUALLY-WAIT is non-nil, this function
-will also wait for the specified amount of time before running
-each timers.
+idle for SECS seconds. Hence calling this function twice with
+SECS = 1 is not equivalent to 2 seconds of idle time.
+
+If ACTUALLY-WAIT is non-nil, this function will also wait for the
+specified amount of time before running each timer.
 
 If SECS is nil, simulate enough idle time to run each timer in
 `timer-idle-list' at least once. (It's possible that some timers
