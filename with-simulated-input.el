@@ -221,7 +221,7 @@ simulated idle time to be returned instead of the real value."
               wsi-simulated-idle-time))
     ad-do-it))
 
-(cl-defun wsi-simulate-idle-time (secs &optional actually-wait)
+(cl-defun wsi-simulate-idle-time (&optional secs actually-wait)
   "Run all idle timers with delay less than SECS.
 
 This simulates resetting the idle time to zero and then being
@@ -229,10 +229,24 @@ idle for SECS seconds. If ACTUALLY-WAIT is non-nil, this function
 will also wait for the specified amount of time before running
 each timers.
 
+If SECS is nil, simulate enough idle time to run each timer in
+`timer-idle-list' at least once. (It's possible that some timers
+will be run more than once, since each timer could potentially
+add new timers to the list.)
+
 While each timer is running, `current-idle-time' will be
-overridden to return the current simulated idle time."
+overridden to return the current simulated idle time.
+
+This function does not run any timers in `timer-list', even
+though they would run during real idle time."
   (interactive
    "nSeconds of idle time: \nP")
+  ;; SECS defaults to the maximum idle time of any currently active
+  ;; timer.
+  (unless secs
+    (setq secs
+          (cl-loop for timer in timer-idle-list
+                   maximize (float-time (timer--time timer)))))
   (cl-loop
    with already-run-timers = nil
    with stop-time = (seconds-to-time secs)
