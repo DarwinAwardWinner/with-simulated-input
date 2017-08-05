@@ -107,7 +107,7 @@
     (spy-calls-reset 'idle-canary))
   (it "should run idle timers"
     (run-with-idle-timer 500 nil 'idle-canary)
-    (wsi-simulate-idle-time 501)
+    (wsi-simulate-idle-time 500)
     (expect 'idle-canary :to-have-been-called))
   (it "should not run idle times with longer times"
     (run-with-idle-timer 500 nil 'set 'idle-canary)

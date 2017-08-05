@@ -247,6 +247,9 @@ though they would run during real idle time."
     (setq secs
           (cl-loop for timer in timer-idle-list
                    maximize (float-time (timer--time timer)))))
+  ;; Add a small fudge factor to deal with SECS being exactly equal to
+  ;; a timer's time, to avoid floating point issues.
+  (setq secs (+ secs 0.0001))
   (cl-loop
    with already-run-timers = nil
    with stop-time = (seconds-to-time secs)
@@ -263,7 +266,7 @@ though they would run during real idle time."
    if (time-less-p wsi-simulated-idle-time
                    (timer--time next-timer))
    do (setq wsi-simulated-idle-time
-                   (timer--time next-timer))
+            (timer--time next-timer))
    when actually-wait
    do (sleep-for (float-time (time-subtract wsi-simulated-idle-time
                                             previous-idle-time)))
