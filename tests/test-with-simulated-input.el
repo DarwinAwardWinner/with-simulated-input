@@ -109,9 +109,11 @@
     (run-with-idle-timer 500 nil 'idle-canary)
     (wsi-simulate-idle-time 500)
     (expect 'idle-canary :to-have-been-called))
-  (it "should not run idle times with longer times"
+  (it "should not run idle timers with longer times even when called multiple times"
     (run-with-idle-timer 500 nil 'set 'idle-canary)
-    (wsi-simulate-idle-time 100)
+    (wsi-simulate-idle-time 400)
+    (wsi-simulate-idle-time 400)
+    (wsi-simulate-idle-time 400)
     (expect 'idle-canary :not :to-have-been-called))
   (it "should run idle timers added by other idle timers"
     (run-with-idle-timer
@@ -124,6 +126,12 @@
      100 nil 'run-with-idle-timer
      50 nil 'idle-canary)
     (wsi-simulate-idle-time 500)
+    (expect 'idle-canary :to-have-been-called))
+  (it "should run all idle timers when called with SECS = nil"
+    (run-with-idle-timer 1000 nil 'idle-canary)
+    (wsi-simulate-idle-time 1)
+    (expect 'idle-canary :not :to-have-been-called)
+    (wsi-simulate-idle-time)
     (expect 'idle-canary :to-have-been-called))
 
   (describe "used within `with-simulated-input'"
