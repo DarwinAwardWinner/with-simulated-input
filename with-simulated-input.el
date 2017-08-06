@@ -170,7 +170,8 @@ in `progn'."
   (declare (indent 1))
   `(cl-letf*
        ((next-action-key (wsi-get-unbound-key))
-        (result 'wsi-canary)
+        (canary-sym ',(cl-gensym "wsi-canary-"))
+        (result canary-sym)
         (thrown-error nil)
         (body-form
          '(throw 'wsi-body-finished (progn ,@body)))
@@ -181,7 +182,7 @@ in `progn'."
                (if (listp ,keys)
                    ,keys
                  (list ,keys))
-               '((throw 'wsi-body-finished 'wsi-canary))))
+               (list `(throw 'wsi-body-finished ',canary-sym))))
         ;; Prepare the list of actions to execute, and the full key
         ;; sequence to execute them
         (action-plist (wsi-prepare-actions keys next-action-key))
@@ -204,7 +205,7 @@ in `progn'."
         (throw 'wsi-threw-error nil)))
      (when thrown-error
        (signal (car thrown-error) (cdr thrown-error)))
-     (if (eq result 'wsi-canary)
+     (if (eq result canary-sym)
          (error "Reached end of simulated input while evaluating body")
        result)))
 
