@@ -65,6 +65,8 @@
          (completing-read "Choose: " mycollection))
        :to-equal "blue"))
     (it "should fail to exit with ambiguous completion and `require-match'"
+      ;; Suppress messages by replacing `message' with a stub
+      (spy-on 'message)
       (expect
        (lambda ()
          (with-simulated-input "bl TAB C-j"
@@ -88,7 +90,27 @@
        (with-simulated-input '("hello SPC world RET RET"
                                (error "Should not reach this error"))
          (read-string "Enter a string: "))
-       :to-equal "hello world"))))
+       :to-equal "hello world"))
+    (it "should evaluate lisp forms in the proper lexical environment"
+      (let ((my-lexical-var nil))
+        (with-simulated-input '("hello"
+                                (setq my-lexical-var t)
+                                "RET")
+          (read-string "Enter a string: "))
+        (expect my-lexical-var
+                :to-be-truthy)))
+    (it "should evaluate lisp forms in the proper lexical environment when manually wrapping expressions in closures"
+      (let ((my-lexical-var nil))
+        (with-simulated-input (list
+                               "hello"
+                               ;; TODO: The macro needs to generate
+                               ;; this kind of lambda wrapper natively
+                               ;; for each non-string element of KEYS
+                               (list (lambda () (setq my-lexical-var t)))
+                               "RET")
+          (read-string "Enter a string: "))
+        (expect my-lexical-var
+                :to-be-truthy)))))
 
 (defun idle-canary ())
 (defvar timers-to-cancel nil)
