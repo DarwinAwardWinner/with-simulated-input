@@ -13,7 +13,7 @@
 ;; This file is NOT part of GNU Emacs.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; 
+;;
 ;;; Commentary:
 
 ;; This package provides a single macro, `with-simulated-input', which
@@ -24,22 +24,22 @@
 ;; interactive commands and functions, such as `completing-read'.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; 
+;;
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation, either version 3 of the License, or (at
 ;; your option) any later version.
-;; 
+;;
 ;; This program is distributed in the hope that it will be useful, but
 ;; WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 ;; General Public License for more details.
-;; 
+;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
-;; 
+;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; 
+;;
 ;;; Code:
 
 (require 'cl-lib)
@@ -101,34 +101,21 @@ to check.
        do (cl-return-from findkey bind))
    finally do (error "Could not find an unbound key with the specified modifiers")))
 
-(defun wsi-prepare-actions (keys exec-form-keybind)
-  (cl-loop
-   with full-key-sequence = '()
-   with action-list = '()
-   for action in keys
-   if (stringp action)
-   collect action into full-key-sequence
-   else
-   collect `(lambda () ,action) into action-list and
-   collect exec-form-keybind into full-key-sequence
-   finally return
-   (list :keys (s-join " " full-key-sequence)
-         :actions action-list)))
+(defmacro wsi-current-lexical-environment ()
+  "Return the current lexical environment.
 
-(defvar wsi-action-list nil)
+This macro expands to a lisp form that evaluates to the current
+lexical environment. It works by creating a closure and then
+extracting and returning its lexical environment.
 
-(defun wsi-run-next-action ()
-  "Pop and call the next function in `wsi-action-list'.
+This can be used to manually construct closures in that
+environment."
+  `(let ((temp-closure (lambda () t)))
+     (cl-assert (eq (car temp-closure) 'closure) t)
+     (cadr temp-closure)))
 
-If the action list is empty, run `(keyboard-quit)' instead."
-  (interactive)
-  (condition-case err
-      (if wsi-action-list
-          (let ((next-action (pop wsi-action-list)))
-            ;; (message "Executing `%S'" next-action)
-            (funcall next-action))
-        (error "Reached end of `wsi-action-list'."))
-    (error (throw 'wsi-threw-error err))))
+(defun wsi-make-closure (expr env)
+  `(closure ,env () ,expr))
 
 ;;;###autoload
 (defmacro with-simulated-input (keys &rest body)
@@ -153,8 +140,6 @@ example, `\"hello RET\"' could also be written as:
 
     `((insert \"hello\") \"RET\")'
 
-Currently, KEYS cannot contain more than 36 lisp forms.
-
 If BODY tries to read more input events than KEYS provides, an
 error is signalled. This is to ensure that BODY will never block
 waiting for input, since this macro is intended for
@@ -169,26 +154,65 @@ The return value is the last form in BODY, as if it was wrapped
 in `progn'."
   (declare (indent 1))
   `(cl-letf*
-       ((next-action-key (wsi-get-unbound-key))
+       ((lexenv (wsi-current-lexical-environment))
+        (next-action-key (wsi-get-unbound-key))
         (canary-sym ',(cl-gensym "wsi-canary-"))
         (result canary-sym)
         (thrown-error nil)
         (body-form
          '(throw 'wsi-body-finished (progn ,@body)))
+        (end-of-actions-form
+         (list 'throw
+               '(quote wsi-body-finished)
+               (list 'quote canary-sym)))
         ;; Ensure KEYS is a list, and put the body form as the first
         ;; item and `C-g' as the last item
-        (keys (append
-               (list body-form)
-               (if (listp ,keys)
-                   ,keys
-                 (list ,keys))
-               (list `(throw 'wsi-body-finished ',canary-sym))))
-        ;; Prepare the list of actions to execute, and the full key
-        ;; sequence to execute them
-        (action-plist (wsi-prepare-actions keys next-action-key))
-        (wsi-action-list (plist-get action-plist :actions))
+        (keylist ,keys)
+        (keylist (if (listp keylist)
+                     keylist
+                   (list keylist)))
+        ;; Replace non-strings with `next-action-key' and concat
+        ;; everything together
         (full-key-sequence
-         (concat (plist-get action-plist :keys)))
+         (cl-loop
+          for action in keylist
+          if (stringp action)
+          collect action into key-sequence-list
+          else
+          collect next-action-key into key-sequence-list
+          finally return
+          ;; Prepend and append `next-action-key' to run body and canary
+          (concat
+           next-action-key " "
+           (mapconcat #'identity key-sequence-list " ")
+           " " next-action-key)))
+        ;; Extract non-string forms, adding body at the front and
+        ;; canary at the back
+        (action-list
+         (nconc
+          (list body-form)
+          (cl-loop
+           for action in keylist
+           if (not (stringp action))
+           collect action)
+          (list end-of-actions-form)))
+        ;; Wrap each action in a lexical closure so it can refer to
+        ;; variables from the caller.
+        (action-closures
+         (cl-loop
+          for action in action-list
+          collect (wsi-make-closure action lexenv)))
+        ;; Define the next action command with lexical scope so it can
+        ;; access `action-closures'.
+        ((symbol-function 'wsi-run-next-action)
+         (lambda ()
+           (interactive)
+           (condition-case err
+               (if action-closures
+                   (let ((next-action (pop action-closures)))
+                     (funcall next-action))
+                 (error "`with-simulated-input' reached end of action list without returning."))
+             (error (throw 'wsi-threw-error err)))))
         ;; Set up the temporary keymap
         (action-map (make-sparse-keymap)))
      ;; Finish setting up the keymap for the temp command
