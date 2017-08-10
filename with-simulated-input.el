@@ -104,6 +104,8 @@ to check.
 (defmacro wsi-current-lexical-environment ()
   "Return the current lexical environment.
 
+If `lexical-binding' is not enabled, return nil.
+
 This macro expands to a lisp form that evaluates to the current
 lexical environment. It works by creating a closure and then
 extracting and returning its lexical environment.
@@ -111,11 +113,13 @@ extracting and returning its lexical environment.
 This can be used to manually construct closures in that
 environment."
   `(let ((temp-closure (lambda () t)))
-     (cl-assert (eq (car temp-closure) 'closure) t)
-     (cadr temp-closure)))
+     (when (eq (car temp-closure) 'closure)
+       (cadr temp-closure))))
 
 (defun wsi-make-closure (expr env)
-  `(closure ,env () ,expr))
+  (if env
+      `(closure ,env () ,expr)
+    `(lambda () ,expr)))
 
 ;;;###autoload
 (defmacro with-simulated-input (keys &rest body)

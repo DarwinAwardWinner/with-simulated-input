@@ -6,6 +6,7 @@
 
 ;; Needs to be dynamically bound
 (defvar mycollection)
+(defvar my-non-lexical-var)
 
 (describe "`with-simulated-input'"
 
@@ -112,6 +113,17 @@
                                 "RET")
           (read-string "Enter a string: "))
         (expect my-lexical-var
+                :to-be-truthy)))
+
+    (it "should work in a non-lexical environment"
+      (let ((my-non-lexical-var nil))
+        (eval
+         '(with-simulated-input '("hello"
+                                  (setq my-non-lexical-var t)
+                                  "RET")
+            (read-string "Enter a string: "))
+         nil)
+        (expect my-non-lexical-var
                 :to-be-truthy)))
 
     (it "should allow interpolation of variables into KEYS"
