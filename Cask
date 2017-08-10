@@ -3,7 +3,7 @@
 (source gnu)
 (source melpa)
 
-(package "with-simulated-input" "2.2"
+(package "with-simulated-input" "2.3"
          "A macro to simulate user input non-interactively.")
 
 (depends-on "seq")
