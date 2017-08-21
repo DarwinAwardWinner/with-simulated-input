@@ -239,16 +239,16 @@ in `progn'."
 
 (defvar wsi-simulated-idle-time nil)
 
-(defadvice current-idle-time (around simulate-idle-time activate)
+(defun current-idle-time@simulate-idle-time (orig-fun &rest args)
   "Return the faked value while simulating idle time.
 
 While executing `wsi-simulate-idle-time', this advice causes the
 simulated idle time to be returned instead of the real value."
   (if wsi-simulated-idle-time
-      (setq ad-return-value
-            (when (time-less-p (seconds-to-time 0) wsi-simulated-idle-time)
-              wsi-simulated-idle-time))
-    ad-do-it))
+      (when (time-less-p (seconds-to-time 0) wsi-simulated-idle-time)
+        wsi-simulated-idle-time))
+  (apply orig-fun args))
+(advice-add 'current-idle-time :around 'current-idle-time@simulate-idle-time)
 
 (cl-defun wsi-simulate-idle-time (&optional secs actually-wait)
   "Run all idle timers with delay less than SECS.
