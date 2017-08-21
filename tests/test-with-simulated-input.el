@@ -1,5 +1,9 @@
 ;;; -*- lexical-binding: t -*-
 
+(require 'undercover)
+(undercover "*.el"
+            (:exclude "test-*.el"))
+
 (require 'with-simulated-input)
 (require 'cl-lib)
 (require 'buttercup)

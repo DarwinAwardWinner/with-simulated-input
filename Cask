@@ -14,4 +14,5 @@
              :git "https://github.com/DarwinAwardWinner/emacs-buttercup.git"
              :branch "show-exprs"
              :files ("*.el"
-                     ("bin" "bin/*"))))
+                     ("bin" "bin/*")))
+ (depends-on "undercover"))
