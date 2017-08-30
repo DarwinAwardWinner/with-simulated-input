@@ -10,9 +10,5 @@
 (depends-on "s")
 
 (development
- (depends-on "buttercup"
-             :git "https://github.com/DarwinAwardWinner/emacs-buttercup.git"
-             :branch "show-exprs"
-             :files ("*.el"
-                     ("bin" "bin/*")))
+ (depends-on "buttercup")
  (depends-on "undercover"))

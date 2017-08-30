@@ -22,17 +22,16 @@
 
   (it "should throw an error if the input is incomplete"
     (expect
-     (lambda ()
-       (with-simulated-input "hello"
-         (read-string "Enter a string: ")))
+     (with-simulated-input "hello"
+       (read-string "Enter a string: "))
      :to-throw))
 
   (it "should allow the input to trigger errors"
     (expect
-     (lambda ()
-       (with-simulated-input
-           "(error SPC \"Manually SPC throwing SPC an SPC error\") RET"
-         (command-execute 'eval-expression)))
+
+     (with-simulated-input
+         "(error SPC \"Manually SPC throwing SPC an SPC error\") RET"
+       (command-execute 'eval-expression))
      :to-throw))
 
   (it "should ignore extra input after BODY has completed"
@@ -83,9 +82,9 @@
       ;; Suppress messages by replacing `message' with a stub
       (spy-on 'message)
       (expect
-       (lambda ()
-         (with-simulated-input "bl TAB C-j"
-           (completing-read "Choose: " mycollection nil t)))
+
+       (with-simulated-input "bl TAB C-j"
+         (completing-read "Choose: " mycollection nil t))
        :to-throw)))
 
   (describe "using lisp forms in KEYS argument of `with-simulated-input'"
@@ -98,9 +97,9 @@
 
     (it "should allow lisp forms to throw errors"
       (expect
-       (lambda ()
-         (with-simulated-input '("hello SPC" (error "Throwing an error") "RET")
-           (read-string "Enter a string: ")))
+
+       (with-simulated-input '("hello SPC" (error "Throwing an error") "RET")
+         (read-string "Enter a string: "))
        :to-throw))
 
     (it "should not interpret lisp forms once BODY has finished"
