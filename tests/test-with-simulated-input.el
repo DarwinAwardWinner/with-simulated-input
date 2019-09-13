@@ -67,6 +67,15 @@
        (quit 'caught-quit))
      :to-be 'caught-quit))
 
+  ;; https://github.com/DarwinAwardWinner/with-simulated-input/issues/4
+  (it "should work inside code that switches buffer (issue #4)"
+    (let ((orig-current-buffer (current-buffer)))
+      (with-temp-buffer
+        (let ((temp-buffer (current-buffer)))
+          (with-simulated-input "a" (read-char))
+          (expect (current-buffer) :to-equal temp-buffer)
+          (expect (current-buffer) :not :to-equal orig-current-buffer)))))
+
   (describe "used with `completing-read'"
 
     :var (collection completing-read-function)

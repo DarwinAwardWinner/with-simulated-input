@@ -162,6 +162,7 @@ in `progn'."
   (declare (indent 1))
   `(cl-letf*
        ((lexenv (wsi-current-lexical-environment))
+        (correct-current-buffer (current-buffer))
         (next-action-key (wsi-get-unbound-key))
         (result wsi--canary-sym)
         (thrown-error nil)
@@ -177,6 +178,30 @@ in `progn'."
         (keylist (if (listp keylist)
                      keylist
                    (list keylist)))
+        ;; Extract non-string forms, adding body at the front and
+        ;; canary at the back
+        (action-list
+         (nconc
+          (list
+           ;; First we switch back to the correct buffer (since
+           ;; `execute-kbd-macro' switches to the wrong one).
+           (list 'switch-to-buffer correct-current-buffer)
+           ;; Then we run the body form
+           body-form)
+          ;; Then we run each of the actions specified in KEYS
+          (cl-loop
+           for action in keylist
+           if (not (stringp action))
+           collect action)
+          ;; Finally we throw the canary if we read past the end of
+          ;; the input.
+          (list end-of-actions-form)))
+        ;; Wrap each action in a lexical closure so it can refer to
+        ;; variables from the caller.
+        (action-closures
+         (cl-loop
+          for action in action-list
+          collect (wsi-make-closure action lexenv)))
         ;; Replace non-strings with `next-action-key' and concat
         ;; everything together
         (full-key-sequence
@@ -187,27 +212,17 @@ in `progn'."
           else
           collect next-action-key into key-sequence-list
           finally return
-          ;; Prepend and append `next-action-key' to run body and canary
+          ;; Prepend and append `next-action-key' as appropriate to
+          ;; switch buffer, run body, and throw canary.
           (concat
+           ;; Switch to correct buffer
            next-action-key " "
+           ;; Start executing body
+           next-action-key " "
+           ;; Execute the actual key sequence
            (mapconcat #'identity key-sequence-list " ")
+           ;; Throw the canary if BODY reads past the provided input
            " " next-action-key)))
-        ;; Extract non-string forms, adding body at the front and
-        ;; canary at the back
-        (action-list
-         (nconc
-          (list body-form)
-          (cl-loop
-           for action in keylist
-           if (not (stringp action))
-           collect action)
-          (list end-of-actions-form)))
-        ;; Wrap each action in a lexical closure so it can refer to
-        ;; variables from the caller.
-        (action-closures
-         (cl-loop
-          for action in action-list
-          collect (wsi-make-closure action lexenv)))
         ;; Define the next action command with lexical scope so it can
         ;; access `action-closures'.
         ((symbol-function 'wsi-run-next-action)
