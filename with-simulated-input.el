@@ -178,8 +178,9 @@ in `progn'."
         (keylist (if (listp keylist)
                      keylist
                    (list keylist)))
-        ;; Extract non-string forms, adding body at the front and
-        ;; canary at the back
+        ;; Build the full action list, which includes everything in
+        ;; KEYS, as well as some additional setup beforehand and
+        ;; cleanup afterward.
         (action-list
          (nconc
           (list
