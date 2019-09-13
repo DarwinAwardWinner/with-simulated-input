@@ -121,6 +121,9 @@ environment."
       `(closure ,env () ,expr)
     `(lambda () ,expr)))
 
+(defconst wsi--canary-sym (cl-gensym "wsi-canary-")
+  "A unique symbol.")
+
 ;;;###autoload
 (defmacro with-simulated-input (keys &rest body)
   "Eval BODY forms with KEYS as simulated input.
@@ -160,15 +163,14 @@ in `progn'."
   `(cl-letf*
        ((lexenv (wsi-current-lexical-environment))
         (next-action-key (wsi-get-unbound-key))
-        (canary-sym ',(cl-gensym "wsi-canary-"))
-        (result canary-sym)
+        (result wsi--canary-sym)
         (thrown-error nil)
         (body-form
          '(throw 'wsi-body-finished (progn ,@body)))
         (end-of-actions-form
          (list 'throw
                '(quote wsi-body-finished)
-               (list 'quote canary-sym)))
+               (list 'quote wsi--canary-sym)))
         ;; Ensure KEYS is a list, and put the body form as the first
         ;; item and `C-g' as the last item
         (keylist ,keys)
@@ -233,7 +235,7 @@ in `progn'."
         (throw 'wsi-threw-error nil)))
      (when thrown-error
        (signal (car thrown-error) (cdr thrown-error)))
-     (if (eq result canary-sym)
+     (if (eq result wsi--canary-sym)
          (error "Reached end of simulated input while evaluating body")
        result)))
 
