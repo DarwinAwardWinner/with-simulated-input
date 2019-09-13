@@ -69,7 +69,7 @@ this checks ALL keymaps, not just currently active ones."
                (keys "abcdefghijklmnopqrstuvwxyz0123456789"))
   "Return a key binding that is not bound in any known keymap.
 
-This function will try check every letter from a to z and every
+This function will check every letter from a to z and every
 number from 0 through 9 with several combinations of multiple
 modifiers (i.e. control, meta, alt, super, hyper). For each such
 key combination, it will check for bindings in all known keymaps,
