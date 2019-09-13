@@ -12,6 +12,17 @@
 (defvar mycollection)
 (defvar my-non-lexical-var)
 
+(describe "`wsi-get-unbound-key'"
+  (it "should find an unbound key"
+    (let ((unbound-key (wsi-get-unbound-key)))
+      (expect unbound-key :to-be-truthy)
+      (expect (wsi-key-bound-p unbound-key) :not :to-be-truthy)))
+  (it "should report an error if it fails to find an unbound key"
+    ;; Now we call it with an empty list of modifiers and keys to
+    ;; search, so it definitely should not find a binding.
+    (expect (wsi-get-unbound-key '() "")
+            :to-throw 'error)))
+
 (describe "`with-simulated-input'"
 
   (it "should work for basic string input"
