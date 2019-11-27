@@ -200,8 +200,12 @@
   (it "should run idle timers added by other idle timers when the new timer is in the past"
     (run-with-idle-timer
      100 nil 'run-with-idle-timer
+     90 nil 'run-with-idle-timer
+     80 nil 'run-with-idle-timer
+     70 nil 'run-with-idle-timer
+     60 nil 'run-with-idle-timer
      50 nil 'idle-canary)
-    (wsi-simulate-idle-time 500)
+    (wsi-simulate-idle-time 110)
     (expect 'idle-canary :to-have-been-called))
 
   (it "should run all idle timers when called with SECS = nil"
@@ -215,7 +219,10 @@
     (it "should allow idle timers to trigger during simulated input"
       (run-with-idle-timer 500 nil 'insert "world")
       (expect
-       (with-simulated-input '("hello SPC" (wsi-simulate-idle-time 501) "RET")
+       (with-simulated-input
+           '("hello SPC"
+             (wsi-simulate-idle-time 501)
+             "RET")
          (read-string "Enter a string: "))
        :to-equal "hello world"))))
 
