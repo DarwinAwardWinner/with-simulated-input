@@ -286,8 +286,11 @@ add new timers to the list.)
 While each timer is running, `current-idle-time' will be
 overridden to return the current simulated idle time.
 
-This function does not run any timers in `timer-list', even
-though they would run during real idle time."
+The idle time simulation provided by this function is not
+perfect. For example, this function does not run any timers in
+`timer-list', even though they would run as normal during real
+idle time. In addition, weird effects may occur if idle timers
+add other idle timers."
   (interactive
    "nSeconds of idle time: \nP")
   ;; SECS defaults to the maximum idle time of any currently active

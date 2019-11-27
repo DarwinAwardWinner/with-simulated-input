@@ -19,12 +19,27 @@ For example:
 
 This would return the string `"hello world"`.
 
+## Running code during input
+
+Sometimes you need to simulate an interaction that is difficult or
+impossible to express as a sequence of keys. In this case, you can
+pass a list of "inputs" instead of a single string. Any string in this
+list will be treated as a key sequence, and any other form will be
+treated as Emacs Lisp code and evaluated at that point during the
+simulated interaction. For example, we can use Emacs Lisp code to
+enter "world" after entering "hello" via key sequence:
+
+```elisp
+(with-simulated-input
+    '("hello SPC" (insert "world") "RET")
+  (read-string "Say hello: "))
+```
+
 ## Simulating idleness
 
 Some interactive functions rely on idle timers to do their work, so
 you might need a way to simulate idleness. For that, there is the
-`wsi-simulate-idle-time` function. You can insert calls to this
-function in between input strings. For example, the following code
+`wsi-simulate-idle-time` function. For example, the following code
 will return `"hello world"`.
 
 ```elisp
@@ -36,11 +51,8 @@ will return `"hello world"`.
   (read-string "Enter a string: "))
 ```
 
-Note that this code only *pretends* to be idle for 501 seconds. It
-actually runs immediately.
-
-In fact, you can put any lisp code in between input strings
-in this way.
+Note that the example code above only *pretends* to be idle for 501
+seconds. It actually runs immediately.
 
 Get it from MELPA: https://stable.melpa.org/#/with-simulated-input
 
