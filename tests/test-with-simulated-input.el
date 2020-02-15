@@ -160,14 +160,25 @@
            (read-string "Enter a string: "))
          :to-equal "hello world")))))
 
-(defun idle-canary ())
+(defun time-equal-p (t1 t2)
+  "Return non-nil if T1 and T2 represent the same time.
+
+Note that there are multiple ways to represent a time, so
+`time-equal-p' does not necessarily imply `equal'."
+  (not (or (time-less-p t1 t2)
+           (time-less-p t2 t1))))
+
+(defvar canary-idle-time nil)
+(defun idle-canary ()
+  (setq canary-idle-time (current-idle-time)))
 (defvar timers-to-cancel nil)
 (defvar orig-timer--activate (symbol-function 'timer--activate))
 
 (describe "`wsi-simulate-idle-time'"
 
   (before-each
-    (spy-on 'idle-canary)
+    (setq canary-idle-time nil)
+    (spy-on 'idle-canary :and-call-through)
     (spy-on 'timer--activate
             :and-call-fake
             (lambda (timer &rest args)
@@ -216,7 +227,13 @@
     (wsi-simulate-idle-time)
     (expect 'idle-canary :to-have-been-called))
 
-  (it "should simulate the appropriate value for `(current-idle-time)'")
+  (it "should simulate the appropriate value for `(current-idle-time)'"
+    (spy-on 'current-idle-time@simulate-idle-time :and-call-through)
+    (run-with-idle-timer 1 nil 'idle-canary)
+    (wsi-simulate-idle-time 2)
+    (expect 'current-idle-time@simulate-idle-time :to-have-been-called)
+    (expect canary-idle-time :to-be-truthy)
+    (expect (time-equal-p canary-idle-time (seconds-to-time 1))))
 
   (it "should actually wait the specified time when `actually-wait' is non-nil"
     (spy-on 'sleep-for :and-call-through)
