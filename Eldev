@@ -1,0 +1,9 @@
+; -*- mode: emacs-lisp; lexical-binding: t; no-byte-compile: t -*-
+
+;; Uncomment some calls below as needed for your project.  It is not
+;; recommended to use `melpa-unstable' unless some dependencies simply
+;; cannot be downloaded from another archive.
+(eldev-use-package-archive 'gnu)
+(eldev-use-package-archive 'melpa-stable)
+
+(eldev-add-extra-dependencies 'test 'undercover)
