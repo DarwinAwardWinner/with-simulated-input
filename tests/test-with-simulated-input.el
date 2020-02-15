@@ -166,12 +166,13 @@
 
 (describe "`wsi-simulate-idle-time'"
 
-  (spy-on 'idle-canary)
-  (spy-on 'timer--activate
-          :and-call-fake
-          (lambda (timer &rest args)
-            (push timer timers-to-cancel)
-            (apply orig-timer--activate timer args)))
+  (before-each
+    (spy-on 'idle-canary)
+    (spy-on 'timer--activate
+            :and-call-fake
+            (lambda (timer &rest args)
+              (push timer timers-to-cancel)
+              (apply orig-timer--activate timer args))))
 
   (after-each
     (mapcar #'cancel-timer timers-to-cancel)
