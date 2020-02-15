@@ -7,3 +7,6 @@
 (eldev-use-package-archive 'melpa-stable)
 
 (eldev-add-extra-dependencies 'test 'undercover)
+
+;; Tell checkdoc not to demand two spaces after a period.
+(setq sentence-end-double-space nil)
