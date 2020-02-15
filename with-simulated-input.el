@@ -255,7 +255,14 @@ in `progn'."
          (error "Reached end of simulated input while evaluating body")
        result)))
 
-(defvar wsi-simulated-idle-time nil)
+(defvar wsi-simulated-idle-time nil
+  "The current simulated idle time.
+
+While simulating idle time using `wsi-simulated-idle-time', this
+variable will always be set to the amount of idle time that has
+been simulated so far. For example, if an idle time is set to run
+every 5 seconds while idle, then on its first run, this will be
+set to 5 seconds, then 10 seconds the next time, and so on.")
 
 (defun current-idle-time@simulate-idle-time (orig-fun &rest args)
   "Return the faked value while simulating idle time.
@@ -311,9 +318,12 @@ add other idle timers."
    ;; timers to the list, and picking up at the same list position
    ;; would ignore those new timers.
    for next-timer = (car (cl-member-if-not
-                          (lambda (timer) (memq timer already-run-timers))
+                          (lambda (timer)
+                            (and (memq timer already-run-timers)))
                           timer-idle-list))
-   while next-timer
+   ;; Stop if we reach the end of the idle timer list, or if the next
+   ;; timer's idle time is greater than SECS
+   while (and next-timer (time-less-p (timer--time next-timer) stop-time))
    for previous-idle-time = wsi-simulated-idle-time
    if (time-less-p wsi-simulated-idle-time
                    (timer--time next-timer))

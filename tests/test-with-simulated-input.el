@@ -216,6 +216,22 @@
     (wsi-simulate-idle-time)
     (expect 'idle-canary :to-have-been-called))
 
+  (it "should simulate the appropriate value for `(current-idle-time)'")
+
+  (it "should actually wait the specified time when `actually-wait' is non-nil"
+    (spy-on 'sleep-for :and-call-through)
+    (run-with-idle-timer 0.01 nil 'idle-canary)
+    (run-with-idle-timer 0.02 nil 'idle-canary)
+    (run-with-idle-timer 0.03 nil 'idle-canary)
+    (run-with-idle-timer 0.04 nil 'idle-canary)
+    ;; These shouldn't get called
+    (run-with-idle-timer 1 nil 'idle-canary)
+    (run-with-idle-timer 2 nil 'idle-canary)
+    (run-with-idle-timer 3 nil 'idle-canary)
+    (wsi-simulate-idle-time 0.05 t)
+    (expect 'idle-canary :to-have-been-called-times 4)
+    (expect 'sleep-for :to-have-been-called-times 5))
+
   (describe "used within `with-simulated-input'"
     (it "should allow idle timers to trigger during simulated input"
       (run-with-idle-timer 500 nil 'insert "world")
