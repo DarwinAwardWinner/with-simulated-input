@@ -1,8 +1,7 @@
 ;;; -*- lexical-binding: t -*-
 
 (require 'undercover)
-(undercover "*.el"
-            (:exclude "test-*.el"))
+(undercover "with-simulated-input.el")
 
 (require 'with-simulated-input)
 (require 'cl-lib)
