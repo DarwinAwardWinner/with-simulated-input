@@ -77,7 +77,7 @@
 
   (describe "used with `completing-read'"
 
-    :var (collection completing-read-function)
+    :var (completing-read-function)
 
     (before-each
       (setq mycollection '("bluebird" "blueberry" "bluebell" "bluegrass" "baseball")
@@ -185,7 +185,7 @@ Note that there are multiple ways to represent a time, so
               (apply orig-timer--activate timer args))))
 
   (after-each
-    (mapcar #'cancel-timer timers-to-cancel)
+    (mapc #'cancel-timer timers-to-cancel)
     (setq timers-to-cancel nil)
     (spy-calls-reset 'idle-canary))
 
