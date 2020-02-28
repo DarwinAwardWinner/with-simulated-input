@@ -8,7 +8,8 @@
 
 (setq eldev-test-framework 'buttercup)
 
-(eldev-add-extra-dependencies 'test 'undercover)
+(eldev-add-extra-dependencies '(test emacs) 'undercover)
+(eldev-add-extra-dependencies 'emacs 'buttercup)
 
 ;; Tell checkdoc not to demand two spaces after a period.
 (setq sentence-end-double-space nil)
