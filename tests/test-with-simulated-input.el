@@ -114,6 +114,17 @@
          (read-string "Enter a string: "))
        :to-equal "hello world"))
 
+    (it "should allow KEYS to be evaluated at run time"
+      (let ((greeting "hello")
+            (target "world"))
+        (expect
+         (with-simulated-input
+             (list greeting "SPC"
+                   (list 'insert target)
+                   "RET")
+           (read-string "Say hello: "))
+         :to-equal "hello world")))
+
     (it "should allow lisp forms to throw errors"
       (expect
 
