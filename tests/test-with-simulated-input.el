@@ -11,6 +11,11 @@
 (defvar my-collection)
 (defvar my-non-lexical-var)
 
+(defun call-wsi-from-bytecomp-fun ()
+  (with-simulated-input "hello SPC world RET"
+    (read-string "Say hello: ")))
+(byte-compile 'call-wsi-from-bytecomp-fun)
+
 (describe "`wsi-get-unbound-key'"
   (it "should find an unbound key"
     (let ((unbound-key (wsi-get-unbound-key)))
@@ -74,6 +79,10 @@
           (with-simulated-input "a" (read-char))
           (expect (current-buffer) :to-equal temp-buffer)
           (expect (current-buffer) :not :to-equal orig-current-buffer)))))
+
+  (it "should work in byte-compiled code (issue #6)"
+    (expect (call-wsi-from-bytecomp-fun)
+            :not :to-throw))
 
   (describe "used with `completing-read'"
 
