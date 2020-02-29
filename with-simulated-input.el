@@ -111,6 +111,8 @@ extracting and returning its lexical environment.
 This can be used to manually construct closures in that
 environment."
   `(let ((temp-closure (lambda () t)))
+     (unless (listp temp-closure)
+       (error "Cannot capture lexical environment from byte-compiled code"))
      (when (eq (car temp-closure) 'closure)
        (cadr temp-closure))))
 
