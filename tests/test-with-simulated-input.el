@@ -8,7 +8,7 @@
 (require 'buttercup)
 
 ;; Needs to be dynamically bound
-(defvar mycollection)
+(defvar my-collection)
 (defvar my-non-lexical-var)
 
 (describe "`wsi-get-unbound-key'"
@@ -80,7 +80,7 @@
     :var (completing-read-function)
 
     (before-each
-      (setq mycollection '("bluebird" "blueberry" "bluebell" "bluegrass" "baseball")
+      (setq my-collection '("bluebird" "blueberry" "bluebell" "bluegrass" "baseball")
             completing-read-function #'completing-read-default))
 
     ;; Unambiguous completion
@@ -88,13 +88,13 @@
       (expect
        ;; First TAB completes "blue", 2nd completes "bird"
        (with-simulated-input "bl TAB bi TAB RET"
-         (completing-read "Choose: " mycollection))
+         (completing-read "Choose: " my-collection))
        :to-equal "bluebird"))
 
     (it "should work with ambiguous tab completion"
       (expect
        (with-simulated-input "bl TAB C-j"
-         (completing-read "Choose: " mycollection))
+         (completing-read "Choose: " my-collection))
        :to-equal "blue"))
 
     (it "should fail to exit with ambiguous completion and `require-match'"
@@ -103,7 +103,7 @@
       (expect
 
        (with-simulated-input "bl TAB C-j"
-         (completing-read "Choose: " mycollection nil t))
+         (completing-read "Choose: " my-collection nil t))
        :to-throw)))
 
   (describe "using lisp forms in KEYS argument of `with-simulated-input'"
