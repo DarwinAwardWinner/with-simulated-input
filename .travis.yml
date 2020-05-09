@@ -30,5 +30,7 @@ before_script:
   - eldev prepare test
 
 script:
-  - travis-wait-enhanced --timeout=3m -- eldev -s -dtT test
-  - travis-wait-enhanced --timeout=3m -- eldev -p -dtT test
+  # Run in source mode for undercover
+  - travis-wait-enhanced --timeout=3m -- eldev -dtT --loading=source test
+  # Run in packaged mode for testing "actual use" conditions
+  - travis-wait-enhanced --timeout=3m -- eldev -dtT --loading=packaged test
