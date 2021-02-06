@@ -24,7 +24,7 @@
   (it "should report an error if it fails to find an unbound key"
     ;; Now we call it with an empty list of modifiers and keys to
     ;; search, so it definitely should not find a binding.
-    (expect (wsi-get-unbound-key '() "")
+    (expect (wsi-get-unbound-key "" '("abc" "123"))
             :to-throw 'error)))
 
 (describe "`with-simulated-input'"
