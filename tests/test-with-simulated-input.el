@@ -136,7 +136,6 @@
 
     (it "should allow lisp forms to throw errors"
       (expect
-
        (with-simulated-input '("hello SPC" (error "Throwing an error") "RET")
          (read-string "Enter a string: "))
        :to-throw))
@@ -253,6 +252,10 @@ Note that there are multiple ways to represent a time, so
     (expect 'current-idle-time@simulate-idle-time :to-have-been-called)
     (expect canary-idle-time :to-be-truthy)
     (expect (time-equal-p canary-idle-time (seconds-to-time 1))))
+
+  (it "should not interfere with the normal operation of `current-idle-time'"
+    ;; Outside WSI, this will just return the normal value
+    (expect (current-idle-time) :not :to-throw))
 
   (it "should actually wait the specified time when `actually-wait' is non-nil"
     (spy-on 'sleep-for :and-call-through)
