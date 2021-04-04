@@ -157,18 +157,7 @@
             (read-string "Enter a string: "))
          nil)
         (expect my-non-lexical-var
-                :to-be-truthy)))
-
-    (it "should allow interpolation of variables into KEYS"
-      (let ((my-key-sequence "hello")
-            (my-lisp-form '(insert " world")))
-        (expect
-         (with-simulated-input (list
-                                my-key-sequence
-                                my-lisp-form
-                                "RET")
-           (read-string "Enter a string: "))
-         :to-equal "hello world")))))
+                :to-be-truthy)))))
 
 (defun time-equal-p (t1 t2)
   "Return non-nil if T1 and T2 represent the same time.
