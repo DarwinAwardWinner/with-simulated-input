@@ -134,7 +134,10 @@ are propagated normally.
 
 The return value is the last form in BODY, as if it was wrapped
 in `progn'."
-  (declare (indent 1))
+  (declare (indent 1) (debug ([&or ("quote" (&rest &or stringp def-form))
+                                   (&rest &or stringp def-form)
+                                   stringp]
+                              def-body)))
   (pcase keys
     (`(quote ,x) (setq keys x))
     ((guard (not (listp keys))) (cl-callf list keys)))
