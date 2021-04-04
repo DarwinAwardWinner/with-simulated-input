@@ -118,10 +118,7 @@
       (let ((greeting "hello")
             (target "world"))
         (expect
-         (with-simulated-input
-             (list greeting "SPC"
-                   (list 'insert target)
-                   "RET")
+         (with-simulated-input (greeting "SPC" (insert target) "RET")
            (read-string "Say hello: "))
          :to-equal "hello world")))
 
