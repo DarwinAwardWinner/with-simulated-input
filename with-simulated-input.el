@@ -5,7 +5,7 @@
 ;; Filename: with-simulated-input.el
 ;; Author: Ryan C. Thompson
 ;; Created: Thu Jul 20 11:56:23 2017 (-0700)
-;; Version: 2.4
+;; Version: 3.4
 ;; Package-Requires: ((emacs "24.4"))
 ;; URL: https://github.com/DarwinAwardWinner/with-simulated-input
 ;; Keywords: lisp, tools, extensions
@@ -99,35 +99,6 @@ to check.
        do (cl-return-from findkey bind))
    finally do (error "Could not find an unbound key with the specified modifiers")))
 
-(defmacro wsi-current-lexical-environment ()
-  "Return the current lexical environment.
-
-If `lexical-binding' is not enabled, return nil.
-
-This macro expands to a Lisp form that evaluates to the current
-lexical environment. It works by creating a closure and then
-extracting and returning its lexical environment.
-
-This can be used to manually construct closures in that
-environment."
-  `(let ((temp-closure (lambda () t)))
-     (unless (listp temp-closure)
-       (error "Cannot capture lexical environment from byte-compiled code"))
-     (when (eq (car temp-closure) 'closure)
-       (cadr temp-closure))))
-
-(defun wsi-make-closure (expr env)
-  "Construct a closure from EXPR and ENV.
-
-Returns a zero-argument function that, when called, evaluates
-EXPR in lexical environment ENV and returns the result."
-  (if env
-      `(closure ,env () ,expr)
-    `(lambda () ,expr)))
-
-(defconst wsi--canary-sym (cl-gensym "wsi-canary-")
-  "A unique symbol.")
-
 ;;;###autoload
 (defmacro with-simulated-input (keys &rest body)
   "Eval BODY forms with KEYS as simulated input.
@@ -164,100 +135,43 @@ are propagated normally.
 The return value is the last form in BODY, as if it was wrapped
 in `progn'."
   (declare (indent 1))
-  `(cl-letf*
-       ((lexenv (wsi-current-lexical-environment))
-        (correct-current-buffer (current-buffer))
-        (next-action-key (wsi-get-unbound-key))
-        (result wsi--canary-sym)
-        (thrown-error nil)
-        (body-form
-         '(throw 'wsi-body-finished (progn ,@body)))
-        (end-of-actions-form
-         (list 'throw
-               '(quote wsi-body-finished)
-               (list 'quote wsi--canary-sym)))
-        ;; Ensure KEYS is a list, and put the body form as the first
-        ;; item and `C-g' as the last item
-        (keylist ,keys)
-        (keylist (if (listp keylist)
-                     keylist
-                   (list keylist)))
-        ;; Build the full action list, which includes everything in
-        ;; KEYS, as well as some additional setup beforehand and
-        ;; cleanup afterward.
-        (action-list
-         (nconc
-          (list
-           ;; First we switch back to the correct buffer (since
-           ;; `execute-kbd-macro' switches to the wrong one).
-           (list 'switch-to-buffer correct-current-buffer)
-           ;; Then we run the body form
-           body-form)
-          ;; Then we run each of the actions specified in KEYS
-          (cl-loop
-           for action in keylist
-           if (not (stringp action))
-           collect action)
-          ;; Finally we throw the canary if we read past the end of
-          ;; the input.
-          (list end-of-actions-form)))
-        ;; Wrap each action in a lexical closure so it can refer to
-        ;; variables from the caller.
-        (action-closures
-         (cl-loop
-          for action in action-list
-          collect (wsi-make-closure action lexenv)))
-        ;; Replace non-strings with `next-action-key' and concat
-        ;; everything together
-        (full-key-sequence
-         (cl-loop
-          for action in keylist
-          if (stringp action)
-          collect action into key-sequence-list
-          else
-          collect next-action-key into key-sequence-list
-          finally return
-          ;; Prepend and append `next-action-key' as appropriate to
-          ;; switch buffer, run body, and throw canary.
-          (concat
-           ;; Switch to correct buffer
-           next-action-key " "
-           ;; Start executing body
-           next-action-key " "
-           ;; Execute the actual key sequence
-           (mapconcat #'identity key-sequence-list " ")
-           ;; Throw the canary if BODY reads past the provided input
-           " " next-action-key)))
-        ;; Define the next action command with lexical scope so it can
-        ;; access `action-closures'.
-        ((symbol-function 'wsi-run-next-action)
+  (pcase keys
+    (`(quote ,x) (setq keys x))
+    ((guard (not (listp keys))) (cl-callf list keys)))
+  (let ((key-sym (make-symbol "unbound-key"))
+        (actions-sym (make-symbol "actions"))
+        (result-sym (make-symbol "result"))
+        (error-sym (make-symbol "wsi-error")))
+    `(let ((,key-sym (wsi-get-unbound-key))
+           (overriding-terminal-local-map
+            (if overriding-terminal-local-map
+                (copy-keymap overriding-terminal-local-map)
+              (make-sparse-keymap)))
+           (,actions-sym
+            ;; The lambdas must be evaluated at run-time for the closures to be
+            ;; built correctly, so we must use `list' instead of something like
+            ;; '.
+            (list (lambda ()
+                    (throw ',result-sym ,(macroexp-progn body)))
+                  ,@(cl-loop for key in keys unless (stringp key)
+                             collect `(lambda () ,key)))))
+       (define-key overriding-terminal-local-map (kbd ,key-sym)
          (lambda ()
            (interactive)
-           (condition-case err
-               (if action-closures
-                   (let ((next-action (pop action-closures)))
-                     (funcall next-action))
-                 (error "`with-simulated-input' reached end of action list without returning"))
-             (error (throw 'wsi-threw-error err)))))
-        ;; Set up the temporary keymap
-        (action-map (make-sparse-keymap)))
-     ;; Finish setting up the keymap for the temp command
-     (define-key action-map (kbd next-action-key) 'wsi-run-next-action)
-     (setq
-      thrown-error
-      (catch 'wsi-threw-error
-        (setq
-         result
-         (catch 'wsi-body-finished
-           (let ((overriding-terminal-local-map action-map))
-             (execute-kbd-macro (kbd full-key-sequence)))))
-        ;; If we got here, then no error
-        (throw 'wsi-threw-error nil)))
-     (when thrown-error
-       (signal (car thrown-error) (cdr thrown-error)))
-     (if (eq result wsi--canary-sym)
-         (error "Reached end of simulated input while evaluating body")
-       result)))
+           (unless ,actions-sym
+             (throw ',error-sym "Reached end of simulated input while simulating body"))
+           (funcall (pop ,actions-sym))))
+       ;; If there is a result, `error' won't be called. Otherwise, there must
+       ;; be an error (Reached end of simulated input).
+       (catch ',result-sym
+         (error
+          (catch ',error-sym
+            (execute-kbd-macro
+             ;; We can't compute this at compile-time because we don't know what key
+             ;; will be free.
+             (kbd (string-join (list ,key-sym ,@(cl-loop for key in keys collect
+                                                         (if (stringp key) key key-sym)))
+                               " ")))))))))
 
 (defvar wsi-simulated-idle-time nil
   "The current simulated idle time.
