@@ -118,17 +118,23 @@ the body form as a function."
     (define-key overriding-terminal-local-map (kbd unbound-key)
       (lambda ()
         (interactive)
-        (unless actions
-          (throw result-sym "Reached end of simulated input while simulating body"))
-        (funcall (pop actions))))
+        (condition-case data
+            (progn
+              (unless actions
+                (error "Reached end of simulated input while simulating body"))
+              (funcall (pop actions)))
+          (t (throw error-sym data)))))
     (catch result-sym
-      (error
-       (catch error-sym
-         (execute-kbd-macro
-          (kbd (string-join (cons unbound-key
-                                  (cl-loop for key in keys collect
-                                           (if (stringp key) key unbound-key)))
-                            " "))))))))
+      ;; Signals are not passed trough `read-from-minibuffer'.
+      (let ((err (catch error-sym
+                   (execute-kbd-macro
+                    (kbd (mapconcat
+                          #'identity
+                          (cons unbound-key
+                                (cl-loop for key in keys collect
+                                         (if (stringp key) key unbound-key)))
+                          " "))))))
+        (signal (car err) (cdr err))))))
 
 ;;;###autoload
 (defmacro with-simulated-input (keys &rest body)
