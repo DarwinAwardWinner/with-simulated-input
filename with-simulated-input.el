@@ -99,6 +99,37 @@ to check.
        do (cl-return-from findkey bind))
    finally do (error "Could not find an unbound key with the specified modifiers")))
 
+(defun with-simulated-input--1 (main &rest keys)
+  "Internal `with-simulated-input' helper.
+KEYS is a keylist as can be passed to that function (except that
+only a list is allowed, and forms must be functions) and MAIN is
+the body form as a function."
+  (let* ((unbound-key (wsi-get-unbound-key))
+         ;; Ensure we don't interfere with any outside catching.
+         (result-sym (make-symbol "result"))
+         (error-sym (make-symbol "error"))
+         (actions (cons (lambda ()
+                          (throw result-sym (funcall main)))
+                        (cl-remove-if-not #'functionp keys)))
+         (overriding-terminal-local-map
+          (if overriding-terminal-local-map
+              (copy-keymap overriding-terminal-local-map)
+            (make-sparse-keymap))))
+    (define-key overriding-terminal-local-map (kbd unbound-key)
+      (lambda ()
+        (interactive)
+        (unless actions
+          (throw result-sym "Reached end of simulated input while simulating body"))
+        (funcall (pop actions))))
+    (catch result-sym
+      (error
+       (catch error-sym
+         (execute-kbd-macro
+          (kbd (string-join (cons unbound-key
+                                  (cl-loop for key in keys collect
+                                           (if (stringp key) key unbound-key)))
+                            " "))))))))
+
 ;;;###autoload
 (defmacro with-simulated-input (keys &rest body)
   "Eval BODY forms with KEYS as simulated input.
@@ -141,40 +172,10 @@ in `progn'."
   (pcase keys
     (`(quote ,x) (setq keys x))
     ((guard (not (listp keys))) (cl-callf list keys)))
-  (let ((key-sym (make-symbol "unbound-key"))
-        (actions-sym (make-symbol "actions"))
-        (result-sym (make-symbol "result"))
-        (error-sym (make-symbol "wsi-error")))
-    `(let ((,key-sym (wsi-get-unbound-key))
-           (overriding-terminal-local-map
-            (if overriding-terminal-local-map
-                (copy-keymap overriding-terminal-local-map)
-              (make-sparse-keymap)))
-           (,actions-sym
-            ;; The lambdas must be evaluated at run-time for the closures to be
-            ;; built correctly, so we must use `list' instead of something like
-            ;; '.
-            (list (lambda ()
-                    (throw ',result-sym ,(macroexp-progn body)))
-                  ,@(cl-loop for key in keys unless (stringp key)
-                             collect `(lambda () ,key)))))
-       (define-key overriding-terminal-local-map (kbd ,key-sym)
-         (lambda ()
-           (interactive)
-           (unless ,actions-sym
-             (throw ',error-sym "Reached end of simulated input while simulating body"))
-           (funcall (pop ,actions-sym))))
-       ;; If there is a result, `error' won't be called. Otherwise, there must
-       ;; be an error (Reached end of simulated input).
-       (catch ',result-sym
-         (error
-          (catch ',error-sym
-            (execute-kbd-macro
-             ;; We can't compute this at compile-time because we don't know what key
-             ;; will be free.
-             (kbd (string-join (list ,key-sym ,@(cl-loop for key in keys collect
-                                                         (if (stringp key) key key-sym)))
-                               " ")))))))))
+  `(with-simulated-input--1
+    (lambda ()
+      ,@body)
+    ,@(cl-loop for key in keys collect (if (consp key) `(lambda () ,key) key))))
 
 (defvar wsi-simulated-idle-time nil
   "The current simulated idle time.
