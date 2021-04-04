@@ -123,7 +123,7 @@ the body form as a function."
         (interactive)
         (condition-case data
             (funcall (pop actions))
-          (t (throw error-sym data)))))
+          (error (throw error-sym data)))))
     (catch result-sym
       ;; Signals are not passed trough `read-from-minibuffer'.
       (let ((err (catch error-sym
