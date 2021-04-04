@@ -108,9 +108,13 @@ the body form as a function."
          ;; Ensure we don't interfere with any outside catching.
          (result-sym (make-symbol "result"))
          (error-sym (make-symbol "error"))
-         (actions (cons (lambda ()
-                          (throw result-sym (funcall main)))
-                        (cl-remove-if-not #'functionp keys)))
+         (orig-buf (current-buffer))
+         (actions (nconc (list (lambda ()
+                                 (switch-to-buffer orig-buf)
+                                 (throw result-sym (funcall main))))
+                         (cl-remove-if-not #'functionp keys)
+                         (list (lambda ()
+                                 (error "Reached end of simulated input while simulating body")))))
          (overriding-terminal-local-map
           (if overriding-terminal-local-map
               (copy-keymap overriding-terminal-local-map)
@@ -119,10 +123,7 @@ the body form as a function."
       (lambda ()
         (interactive)
         (condition-case data
-            (progn
-              (unless actions
-                (error "Reached end of simulated input while simulating body"))
-              (funcall (pop actions)))
+            (funcall (pop actions))
           (t (throw error-sym data)))))
     (catch result-sym
       ;; Signals are not passed trough `read-from-minibuffer'.
@@ -130,9 +131,10 @@ the body form as a function."
                    (execute-kbd-macro
                     (kbd (mapconcat
                           #'identity
-                          (cons unbound-key
-                                (cl-loop for key in keys collect
-                                         (if (stringp key) key unbound-key)))
+                          (nconc (list unbound-key)
+                                 (cl-loop for key in keys collect
+                                          (if (stringp key) key unbound-key))
+                                 (list unbound-key))
                           " "))))))
         (signal (car err) (cdr err))))))
 
