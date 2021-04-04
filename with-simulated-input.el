@@ -82,8 +82,7 @@ modifier combinations, e.g.:
     '(\"C-\" \"M-\" \"C-M-\")
 
 for control, meta, or both. KEYS is a string containing all keys
-to check.
-"
+to check."
   (declare (advertised-calling-convention (&optional modifiers keys) nil))
   (when (stringp modifiers)
     (setq modifiers (list modifiers)))
@@ -198,7 +197,10 @@ set to 5 seconds, then 10 seconds the next time, and so on.")
   "Return the faked value while simulating idle time.
 
 While executing `wsi-simulate-idle-time', this advice causes the
-simulated idle time to be returned instead of the real value."
+simulated idle time to be returned instead of the real value.
+
+ORIG-FUN is the original function, passed by `advice-add'; ARGS
+are the arguments given to it."
   (if wsi-simulated-idle-time
       (when (time-less-p (seconds-to-time 0) wsi-simulated-idle-time)
         wsi-simulated-idle-time)
