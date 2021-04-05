@@ -177,13 +177,14 @@ in `progn'."
                                    ([&not symbolp] &rest &or stringp def-form)
                                    form]
                               def-body)))
-  (if (symbolp (car keys))
-      (cl-callf list keys)
+  ;; (...) is supposed to be like '(), unless it is a function call or
+  ;; quote/list expression
+  (when (and (listp keys) (not (symbolp (car keys))))
     (setq keys `(quote ,keys)))
   (pcase keys
     (`(quote ,x) (setq keys (cl-loop for key in x collect (if (consp key) `',key key))))
-    (`(list . keys) (cl-callf cdr keys))
-    ((guard (not (listp keys))) (cl-callf list keys)))
+    (`(list . ,keys) (cl-callf cdr keys))
+    ((or (guard (not (listp keys))) (guard (symbolp (car keys)))) (cl-callf list keys)))
   `(with-simulated-input--1
     (lambda ()
       ,@body)
