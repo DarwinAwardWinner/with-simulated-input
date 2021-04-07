@@ -170,10 +170,10 @@
       (let ((my-key-sequence "hello")
             (my-lisp-form '(insert " world")))
         (expect
-         (with-simulated-input (list
-                                my-key-sequence
-                                my-lisp-form
-                                "RET")
+         (with-simulated-input
+             '(my-key-sequence
+               (eval my-lisp-form)
+               "RET")
            (read-string "Enter a string: "))
          :to-equal "hello world")))))
 
