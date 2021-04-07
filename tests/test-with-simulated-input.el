@@ -203,19 +203,6 @@
              (read-string "Second word: ")))
      :to-equal '("hello" "world")))
 
-  ;; https://github.com/DarwinAwardWinner/with-simulated-input/issues/4
-  (it "should work inside code that switches buffers (issue #4)"
-    (let ((orig-current-buffer (current-buffer)))
-      (with-temp-buffer
-        (let ((temp-buffer (current-buffer)))
-          (with-simulated-input "a" (read-char))
-          (expect (current-buffer) :to-equal temp-buffer)
-          (expect (current-buffer) :not :to-equal orig-current-buffer)))))
-
-  (xit "should work in byte-compiled code (issue #6)"
-    (expect (call-wsi-from-bytecomp-fun)
-            :not :to-throw))
-
   (describe "used with `completing-read'"
 
     :var (completing-read-function)
@@ -245,7 +232,21 @@
 
        (with-simulated-input "bl TAB C-j"
          (completing-read "Choose: " my-collection nil t))
-       :to-throw))))
+       :to-throw)))
+
+  (describe "should not reproduce past issues:"
+    ;; https://github.com/DarwinAwardWinner/with-simulated-input/issues/4
+    (it "Issue #4: simulating input should not switch buffers"
+      (let ((orig-current-buffer (current-buffer)))
+        (with-temp-buffer
+          (let ((temp-buffer (current-buffer)))
+            (with-simulated-input "a" (read-char))
+            (expect (current-buffer) :to-equal temp-buffer)
+            (expect (current-buffer) :not :to-equal orig-current-buffer)))))
+
+    (xit "Issue #6: `with-simulated-input' should work in byte-compiled code"
+      (expect (call-wsi-from-bytecomp-fun)
+              :not :to-throw))))
 
 (defun time-equal-p (t1 t2)
   "Return non-nil if T1 and T2 represent the same time.
