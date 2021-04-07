@@ -98,7 +98,8 @@ to check."
        do (cl-return-from findkey bind))
    finally do (error "Could not find an unbound key with the specified modifiers")))
 
-(defun with-simulated-input--1 (main &rest keys)
+;;;###autoload
+(defun with-simulated-input-1 (main &rest keys)
   "Internal `with-simulated-input' helper.
 KEYS is a keylist as can be passed to that function (except that
 only a list is allowed, and forms must be functions) and MAIN is
@@ -185,7 +186,7 @@ in `progn'."
     (`(quote ,x) (setq keys (cl-loop for key in x collect (if (consp key) `',key key))))
     (`(list . ,keys) (cl-callf cdr keys))
     ((or (guard (not (listp keys))) (guard (symbolp (car keys)))) (cl-callf list keys)))
-  `(with-simulated-input--1
+  `(with-simulated-input-1
     (lambda ()
       ,@body)
     ,@(cl-loop for key in keys collect (pcase key
