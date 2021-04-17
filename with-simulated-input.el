@@ -173,8 +173,8 @@ are propagated normally.
 
 The return value is the last form in BODY, as if it was wrapped
 in `progn'."
-  (declare (indent 1) (debug ([&or ("quote" (&rest &or stringp symbolp def-form))
-                                   (&rest &or stringp symbolp def-form)]
+  (declare (indent 1) (debug ([&or ("quote" (&rest &or stringp def-form))
+                                   (&rest &or stringp def-form)]
                               def-body)))
   (pcase keys
     (`(quote ,x) (setq keys x))
@@ -182,7 +182,7 @@ in `progn'."
   `(with-simulated-input-1
     (lambda ()
       ,@body)
-    ,@(cl-loop for key in keys collect (if (consp key) `(lambda () ,key) key))))
+    ,@(cl-loop for key in keys collect (if (stringp key) key `(lambda () ,key)))))
 
 (defvar wsi-simulated-idle-time nil
   "The current simulated idle time.
