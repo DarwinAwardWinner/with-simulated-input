@@ -268,7 +268,7 @@ been simulated so far. For example, if an idle time is set to run
 every 5 seconds while idle, then on its first run, this will be
 set to 5 seconds, then 10 seconds the next time, and so on.")
 
-(defun current-idle-time@simulate-idle-time (orig-fun &rest args)
+(defun with-simulated-input--current-idle-time-a (orig-fun &rest args)
   "Return the faked value while simulating idle time.
 
 While executing `wsi-simulate-idle-time', this advice causes the
@@ -277,7 +277,8 @@ simulated idle time to be returned instead of the real value."
       (when (time-less-p (seconds-to-time 0) wsi-simulated-idle-time)
         wsi-simulated-idle-time)
     (apply orig-fun args)))
-(advice-add 'current-idle-time :around 'current-idle-time@simulate-idle-time)
+(advice-add 'current-idle-time
+            :around #'with-simulated-input--current-idle-time-a)
 
 (cl-defun wsi-simulate-idle-time (&optional secs actually-wait)
   "Run all idle timers with delay less than SECS.
@@ -347,7 +348,8 @@ add other idle timers."
 
 (defun with-simulated-input-unload-function ()
   "Unload the `with-simulated-input' library."
-  (advice-remove 'current-idle-time 'current-idle-time@simulate-idle-time))
+  (advice-remove 'current-idle-time
+                 #'with-simulated-input--current-idle-time-a))
 
 (provide 'with-simulated-input)
 

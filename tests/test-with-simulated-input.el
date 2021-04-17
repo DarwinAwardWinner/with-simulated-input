@@ -238,10 +238,10 @@ Note that there are multiple ways to represent a time, so
     (expect 'idle-canary :to-have-been-called))
 
   (it "should simulate the appropriate value for `(current-idle-time)'"
-    (spy-on 'current-idle-time@simulate-idle-time :and-call-through)
+    (spy-on 'with-simulated-input--current-idle-time-a :and-call-through)
     (run-with-idle-timer 1 nil 'idle-canary)
     (wsi-simulate-idle-time 2)
-    (expect 'current-idle-time@simulate-idle-time :to-have-been-called)
+    (expect 'with-simulated-input--current-idle-time-a :to-have-been-called)
     (expect canary-idle-time :to-be-truthy)
     (expect (time-equal-p canary-idle-time (seconds-to-time 1))))
 
