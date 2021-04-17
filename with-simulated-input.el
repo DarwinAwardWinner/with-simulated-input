@@ -345,6 +345,10 @@ add other idle timers."
      (sleep-for (float-time (time-subtract stop-time
                                            wsi-simulated-idle-time))))))
 
+(defun with-simulated-input-unload-function ()
+  "Unload the `with-simulated-input' library."
+  (advice-remove 'current-idle-time 'current-idle-time@simulate-idle-time))
+
 (provide 'with-simulated-input)
 
 ;;; with-simulated-input.el ends here
