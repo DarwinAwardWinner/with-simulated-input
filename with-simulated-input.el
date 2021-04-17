@@ -277,7 +277,8 @@ simulated idle time to be returned instead of the real value."
       (when (time-less-p (seconds-to-time 0) wsi-simulated-idle-time)
         wsi-simulated-idle-time)
     (apply orig-fun args)))
-(advice-add 'current-idle-time :around 'current-idle-time@simulate-idle-time)
+(advice-add 'current-idle-time
+            :around #'current-idle-time@simulate-idle-time)
 
 (cl-defun wsi-simulate-idle-time (&optional secs actually-wait)
   "Run all idle timers with delay less than SECS.
@@ -347,7 +348,8 @@ add other idle timers."
 
 (defun with-simulated-input-unload-function ()
   "Unload the `with-simulated-input' library."
-  (advice-remove 'current-idle-time 'current-idle-time@simulate-idle-time))
+  (advice-remove 'current-idle-time
+                 #'current-idle-time@simulate-idle-time))
 
 (provide 'with-simulated-input)
 
