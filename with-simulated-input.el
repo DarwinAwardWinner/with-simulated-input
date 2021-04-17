@@ -3,7 +3,9 @@
 ;; Copyright (C) 2017 Ryan C. Thompson
 
 ;; Filename: with-simulated-input.el
-;; Author: Ryan C. Thompson
+;; Maintainer: Ryan C Thompson <rct@thompsonclan.org>
+;; Author: Ryan C. Thompson <rct@thompsonclan.org>
+;;    Nikita Bloshchanevich <nikblos@outlook.com>
 ;; Created: Thu Jul 20 11:56:23 2017 (-0700)
 ;; Version: 2.4
 ;; Package-Requires: ((emacs "24.4"))
