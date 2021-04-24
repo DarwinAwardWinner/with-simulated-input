@@ -122,6 +122,16 @@
            (read-string "Say hello: "))
          :to-equal "hello world")))
 
+    (it "should allow a variable for KEYS"
+      (let ((keys "hello RET"))
+        (expect (with-simulated-input keys (read-string "Say hello: "))
+                :to-equal "hello")))
+
+    (it "should error for non-string variable KEYS"
+      (let ((keys (lambda () (insert "X"))))
+        (expect (with-simulated-input keys (read-string "Input: "))
+                :to-throw)))
+
     (it "should allow lisp forms to throw errors"
       (expect
 

@@ -176,15 +176,23 @@ are propagated normally.
 The return value is the last form in BODY, as if it was wrapped
 in `progn'."
   (declare (indent 1) (debug ([&or ("quote" (&rest &or stringp def-form))
-                                   (&rest &or stringp def-form)]
+                                   (&rest &or stringp def-form)
+                                   stringp symbolp]
                               def-body)))
-  (pcase keys
-    (`(quote ,x) (setq keys x))
-    ((guard (not (listp keys))) (cl-callf list keys)))
-  `(with-simulated-input-1
-    (lambda ()
-      ,@body)
-    ,@(cl-loop for key in keys collect (if (stringp key) key `(lambda () ,key)))))
+  (if (and (symbolp keys) keys)
+      `(progn
+         (cl-check-type ,keys string)
+         (with-simulated-input-1
+          (lambda ()
+            ,@body)
+          ,keys))
+    (pcase keys
+      (`(quote ,x) (setq keys x))
+      ((guard (not (listp keys))) (cl-callf list keys)))
+    `(with-simulated-input-1
+      (lambda ()
+        ,@body)
+      ,@(cl-loop for key in keys collect (if (stringp key) key `(lambda () ,key))))))
 
 (defvar wsi-simulated-idle-time nil
   "The current simulated idle time.
