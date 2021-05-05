@@ -116,7 +116,7 @@ the body form as a function."
                                  (throw result-sym (funcall main))))
                          (cl-remove-if-not #'functionp keys)
                          (list (lambda ()
-                                 (error "Reached end of simulated input while simulating body")))))
+                                 (error "Reached end of simulated input while evaluating body")))))
          (overriding-terminal-local-map
           (if overriding-terminal-local-map
               (copy-keymap overriding-terminal-local-map)

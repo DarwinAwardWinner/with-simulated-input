@@ -136,14 +136,14 @@
       (expect
        (with-simulated-input '("hello" (error "Throwing an error from KEYS") "RET")
          (read-string "Enter a string: "))
-       :to-throw))
+       :to-throw 'error '("Throwing an error from KEYS")))
 
     (it "caused indirectly by the inputs in KEYS"
       (expect
        (with-simulated-input
            "(error SPC \"Manually SPC throwing SPC an SPC error\") RET"
          (command-execute 'eval-expression))
-       :to-throw))
+       :to-throw 'error '("Manually throwing an error")))
 
     (it "thrown by BODY"
       (expect
@@ -151,13 +151,13 @@
            "hello RET"
          (read-string "Enter a string: ")
          (error "Throwing an error after reading input"))
-       :to-throw)
+       :to-throw 'error '("Throwing an error after reading input"))
       (expect
        (with-simulated-input
            "hello RET"
          (error "Throwing an error before reading input")
          (read-string "Enter a string: "))
-       :to-throw))
+       :to-throw 'error '("Throwing an error before reading input")))
 
     (it "from aborting via C-g in KEYS"
       (expect
@@ -182,7 +182,7 @@
     (expect
      (with-simulated-input "hello"      ; No RET
        (read-string "Enter a string: "))
-     :to-throw))
+     :to-throw 'error '("Reached end of simulated input while evaluating body")))
 
   (it "should throw an error if the input is empty and BODY reads input"
     (expect
@@ -275,10 +275,9 @@
       ;; Suppress messages by replacing `message' with a stub
       (spy-on 'message)
       (expect
-
        (with-simulated-input "bl TAB C-j"
          (completing-read "Choose: " my-collection nil t))
-       :to-throw)))
+       :to-throw 'error '("Reached end of simulated input while evaluating body"))))
 
   (describe "should not reproduce past issues:"
     ;; https://github.com/DarwinAwardWinner/with-simulated-input/issues/4
