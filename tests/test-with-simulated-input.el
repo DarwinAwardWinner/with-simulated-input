@@ -21,8 +21,10 @@
   (it "should report an error if it fails to find an unbound key"
     ;; Now we call it with an empty list of modifiers and keys to
     ;; search, so it definitely should not find a binding.
-    (expect (wsi-get-unbound-key "" '("abc" "123"))
-            :to-throw 'error)))
+    (expect
+     (let ((wsi-last-used-next-action-bind nil))
+       (wsi-get-unbound-key "" '("abc" "123")))
+     :to-throw 'error)))
 
 (defmacro progn-at-runtime (&rest body)
   "Like `progn', but evaluate BODY entirely at runtime.

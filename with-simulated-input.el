@@ -47,6 +47,9 @@
 (require 'files)
 (require 'cl-lib)
 
+(defvar wsi-last-used-next-action-bind nil
+  "Last keybind used by `with-simulated-input', if any.")
+
 (cl-defun wsi-key-bound-p (key)
   "Return non-nil if KEY is bound in any keymap.
 
@@ -85,21 +88,31 @@ modifier combinations, e.g.:
     '(\"C-\" \"M-\" \"C-M-\")
 
 for control, meta, or both. KEYS is a string containing all keys
-to check."
+to check.
+
+When this function returns, it also sets
+`wsi-last-used-next-action-bind' to the return value. The next
+time it is called, it checks this variable to see if it is still
+usable, and returns it if so, even if it isn't a valid choice
+given the value of MODIFIERS and KEYS."
   (declare (advertised-calling-convention (&optional modifiers keys) nil))
   (when (stringp modifiers)
     (setq modifiers (list modifiers)))
   (when (listp keys)
     (setq keys (apply #'concat keys)))
-  (cl-loop
-   named findkey
-   for modifier in modifiers
-   do (cl-loop
-       for char across keys
-       for bind = (concat modifier (string char))
-       when (not (wsi-key-bound-p bind))
-       do (cl-return-from findkey bind))
-   finally do (error "Could not find an unbound key with the specified modifiers")))
+  (if (and wsi-last-used-next-action-bind
+           (not (wsi-key-bound-p wsi-last-used-next-action-bind)))
+      wsi-last-used-next-action-bind
+    (cl-loop
+     named findkey
+     for modifier in modifiers
+     do (cl-loop
+         for char across keys
+         for bind = (concat modifier (string char))
+         when (not (wsi-key-bound-p bind))
+         do (cl-return-from findkey
+              (setq wsi-last-used-next-action-bind bind)))
+     finally do (error "Could not find an unbound key with the specified modifiers"))))
 
 ;;;###autoload
 (defun with-simulated-input-1 (main &rest keys)
