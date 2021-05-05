@@ -177,22 +177,66 @@ The return value is the last form in BODY, as if it was wrapped
 in `progn'."
   (declare (indent 1) (debug ([&or ("quote" (&rest &or stringp def-form))
                                    (&rest &or stringp def-form)
+                                   ;; TODO Is this redundant with symbolp?
+                                   "nil"
                                    stringp symbolp]
                               def-body)))
-  (if (and (symbolp keys) keys)
-      `(progn
-         (cl-check-type ,keys string)
+  (cond
+   ((null keys)
+    ;; (message "Keys is nil")
+    `(with-simulated-input-1
+      (lambda ()
+        ,@body)
+      nil))
+   ((and keys (symbolp keys))
+    ;; (message "keys is symbol: %S" keys)
+    `(progn
+       (cond
+        ((null ,keys)
+         (with-simulated-input-1
+          (lambda ()
+            ,@body)
+          nil))
+        ((stringp ,keys)
          (with-simulated-input-1
           (lambda ()
             ,@body)
           ,keys))
+        ((listp ,keys)
+         (apply
+          #'with-simulated-input-1
+          (lambda ()
+            ,@body)
+          (cl-loop for key in ,keys collect (if (stringp key) key `(lambda () ,key)))))
+        (t
+         (error "INVALID VAR VALUE: %S" ,keys)))))
+   ((and (listp keys)
+         (not (eq (car keys) 'quote))
+         (or (functionp (car keys))
+             (macrop (car keys))
+             (subrp (indirect-function (car keys)))))
+    ;; (message "Keys is lisp form: %S" keys)
+    `(let ((evaluated-keys (,@keys)))
+       ;; (message "Evaluated keys: %S" evaluated-keys)
+       (pcase evaluated-keys
+         (`(quote ,x) (setq evaluated-keys x))
+         ((guard (not (listp evaluated-keys))) (cl-callf list evaluated-keys)))
+       ;; (message "Evaluated keys transformed: %S"
+       ;;          (cl-loop for key in evaluated-keys collect (if (stringp key) key `(lambda () ,key))))
+       (apply
+        #'with-simulated-input-1
+        (lambda ()
+          ,@body)
+        (cl-loop for key in evaluated-keys collect (if (stringp key) key `(lambda () ,key))))))
+   (t
+    ;; (message "Keys is something else: %S" keys)
     (pcase keys
       (`(quote ,x) (setq keys x))
       ((guard (not (listp keys))) (cl-callf list keys)))
     `(with-simulated-input-1
       (lambda ()
         ,@body)
-      ,@(cl-loop for key in keys collect (if (stringp key) key `(lambda () ,key))))))
+      ,@(cl-loop for key in keys collect (if (stringp key) key `(lambda () ,key)))))))
 
 (defvar wsi-simulated-idle-time nil
   "The current simulated idle time.

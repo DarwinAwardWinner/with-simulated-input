@@ -73,6 +73,7 @@
              (read-string "Enter a string: "))
            :to-equal "hello")))
 
+    ;; This syntax is not known to be used in any real code
     (it "is an arbitrary expression evaluating to any of the above"
       (expect
        (with-simulated-input (list "hello" "RET")
@@ -80,7 +81,7 @@
        :to-equal "hello")
       (expect
        (let ((my-input "hello"))
-         (with-simulated-input (list '(insert my-input) "RET")
+         (with-simulated-input (list (list 'insert my-input) "RET")
            (read-string "Enter a string: ")))
        :to-equal "hello")
       (expect
@@ -90,12 +91,27 @@
       (let ((my-key-sequence "hello")
             (my-lisp-form '(insert " world")))
         (expect
+         (with-simulated-input '((execute-kbd-macro my-key-sequence)
+                                 (eval my-lisp-form)
+                                 "RET")
+           (read-string "Enter a string: "))
+         :to-equal "hello world")
+        (expect
          (with-simulated-input (list
                                 my-key-sequence
                                 my-lisp-form
                                 "RET")
            (read-string "Enter a string: "))
+         :to-equal "hello world")
+        (expect
+         (with-simulated-input (list
+                                `(execute-kbd-macro ,my-key-sequence)
+                                `(eval ,my-lisp-form)
+                                "RET")
+           (read-string "Enter a string: "))
          :to-equal "hello world")))
+
+    ;; This syntax is not known to be used in any real code
     (it "is evaluated at run time in a lexical environment"
       (let ((my-input "hello"))
         (expect
