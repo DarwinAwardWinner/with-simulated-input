@@ -6,15 +6,19 @@
 
 (defun has-advice (symbol advice)
   (let ((advice-fun-to-find
-         (indirect-function advice))
+         ;; In Emacs 24, `indirect-function' throws an error instead
+         ;; of returning nil for void functions. We want it to return nil.
+         (ignore-errors (indirect-function advice)))
         (found nil))
-    (advice-mapc
-     (lambda (ad-fun ad-props)
-       (setq found
-             (or found
-                 (equal (indirect-function ad-fun)
-                        advice-fun-to-find))))
-     symbol)
+    (when advice-fun-to-find
+      (advice-mapc
+       (lambda (ad-fun ad-props)
+         (let ((ad-fun-def (ignore-errors (indirect-function ad-fun))))
+           (when ad-fun-def
+             (setq found
+                   (or found
+                       (equal ad-fun-def advice-fun-to-find))))))
+       symbol))
     found))
 
 (describe "The `with-simulated-input' library"
