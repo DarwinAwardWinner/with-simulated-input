@@ -243,7 +243,7 @@
             (with-simulated-input "a" (read-char))
             (expect (current-buffer) :to-equal temp-buffer)
             (expect (current-buffer) :not :to-equal orig-current-buffer)))))
-    (xit "Issue #6: `with-simulated-input' should work in byte-compiled code"
+    (it "Issue #6: `with-simulated-input' should work in byte-compiled code"
       (expect (call-wsi-from-bytecomp-fun)
               :not :to-throw))))
 
