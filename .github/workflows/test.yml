@@ -2,11 +2,15 @@ name: CI
 
 on:
   push:
-    paths-ignore:
-      - '**.md'
+    paths:
+      - '**.el'
+      - '.github/**'
+      - 'Eldev'
   pull_request:
-    paths-ignore:
-      - '**.md'
+    paths:
+      - '**.el'
+      - '.github/**'
+      - 'Eldev'
 
 jobs:
   test:
