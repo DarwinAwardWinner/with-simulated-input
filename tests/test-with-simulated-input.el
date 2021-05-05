@@ -184,6 +184,52 @@
        (read-string "Enter a string: "))
      :to-throw))
 
+  (it "should throw an error if the input is empty and BODY reads input"
+    (expect
+     (with-simulated-input nil
+       (read-string "Enter a string: "))
+     :to-throw 'error '("Reached end of simulated input while evaluating body"))
+    (expect
+     (with-simulated-input '()
+       (read-string "Enter a string: "))
+     :to-throw 'error '("Reached end of simulated input while evaluating body"))
+    (expect
+     (with-simulated-input ()
+       (read-string "Enter a string: "))
+     :to-throw 'error '("Reached end of simulated input while evaluating body"))
+    (expect
+     (with-simulated-input '(nil)
+       (read-string "Enter a string: "))
+     :to-throw 'error '("Reached end of simulated input while evaluating body"))
+    (let ((my-input nil))
+      (expect
+       (with-simulated-input my-input
+         (read-string "Enter a string: "))
+       :to-throw 'error '("Reached end of simulated input while evaluating body"))))
+
+  (it "should not throw an error if the input is empty unless BODY reads input"
+    (expect
+     (with-simulated-input nil
+       (+ 1 2))
+     :not :to-throw)
+    (expect
+     (with-simulated-input '()
+       (+ 1 2))
+     :not :to-throw)
+    (expect
+     (with-simulated-input ()
+       (+ 1 2))
+     :not :to-throw)
+    (expect
+     (with-simulated-input '(nil)
+       (+ 1 2))
+     :not :to-throw)
+    (let ((my-input nil))
+      (expect
+       (with-simulated-input my-input
+         (+ 1 2))
+       :not :to-throw)))
+
   (it "should discard any extra input after BODY has completed"
     (expect
      (with-simulated-input
