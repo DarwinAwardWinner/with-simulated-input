@@ -1,8 +1,5 @@
 ;;; -*- lexical-binding: t -*-
 
-(when (require 'undercover nil t)
-  (undercover "with-simulated-input.el"))
-
 (require 'with-simulated-input)
 (require 'cl-lib)
 (require 'buttercup)
@@ -10,6 +7,11 @@
 ;; Needs to be dynamically bound
 (defvar my-collection)
 (defvar my-non-lexical-var)
+
+(defun call-wsi-from-bytecomp-fun ()
+  (with-simulated-input "hello SPC world RET"
+    (read-string "Say hello: ")))
+(byte-compile 'call-wsi-from-bytecomp-fun)
 
 (describe "`wsi-get-unbound-key'"
   (it "should find an unbound key"
@@ -19,35 +21,178 @@
   (it "should report an error if it fails to find an unbound key"
     ;; Now we call it with an empty list of modifiers and keys to
     ;; search, so it definitely should not find a binding.
-    (expect (wsi-get-unbound-key '() "")
+    (expect (wsi-get-unbound-key "" '("abc" "123"))
             :to-throw 'error)))
 
 (describe "`with-simulated-input'"
 
-  (it "should work for basic string input"
-    (expect
-     (with-simulated-input "hello RET"
-       (read-string "Enter a string: "))
-     :to-equal "hello"))
+  (describe "should work when KEYS"
+
+    (it "is a literal string"
+      (expect
+       (with-simulated-input "hello RET"
+         (read-string "Enter a string: "))
+       :to-equal "hello"))
+
+    (it "is a quoted list of literal strings"
+      (expect
+       (with-simulated-input '("hello" "RET")
+         (read-string "Enter a string: "))
+       :to-equal "hello"))
+
+    (it "is a quoted list of lisp forms"
+      (expect
+       (with-simulated-input '((insert "hello") (exit-minibuffer))
+         (read-string "Enter a string: "))
+       :to-equal "hello"))
+
+    (it "is a quoted list of strings and lisp forms"
+      (expect
+       (with-simulated-input '((insert "hello") "RET")
+         (read-string "Enter a string: "))
+       :to-equal "hello")
+      (expect
+       (with-simulated-input '("hello" (exit-minibuffer))
+         (read-string "Enter a string: "))
+       :to-equal "hello")
+      (expect
+       (with-simulated-input '("hello SPC" (insert "world") "RET")
+         (read-string "Enter a string: "))
+       :to-equal "hello world"))
+
+    (it "is a variable containing any of the above"
+      (cl-loop
+       for input in
+       '("hello RET"
+         ("hello" "RET")
+         ((insert "hello") (exit-minibuffer))
+         ((insert "hello") "RET")
+         ("hello" (exit-minibuffer)))
+       do (expect
+           (with-simulated-input input
+             (read-string "Enter a string: "))
+           :to-equal "hello")))
+
+    (it "is an arbitrary expression evaluating to any of the above"
+      (expect
+       (with-simulated-input (list "hello" "RET")
+         (read-string "Enter a string: "))
+       :to-equal "hello")
+      (expect
+       (let ((my-input "hello"))
+         (with-simulated-input (list '(insert my-input) "RET")
+           (read-string "Enter a string: ")))
+       :to-equal "hello")
+      (expect
+       (with-simulated-input (concat "hello" " " "RET")
+         (read-string "Enter a string: "))
+       :to-equal "hello")
+      (let ((my-key-sequence "hello")
+            (my-lisp-form '(insert " world")))
+        (expect
+         (with-simulated-input (list
+                                my-key-sequence
+                                my-lisp-form
+                                "RET")
+           (read-string "Enter a string: "))
+         :to-equal "hello world")))
+    (it "is evaluated at run time in a lexical environment"
+      (let ((my-input "hello"))
+        (expect
+         (with-simulated-input `((insert ,my-input) "RET")
+           (read-string "Enter a string: "))
+         :to-equal "hello"))
+      (let ((greeting "hello")
+            (target "world"))
+        (expect
+         (with-simulated-input
+             (list greeting "SPC"
+                   (list 'insert target)
+                   "RET")
+           (read-string "Say hello: "))
+         :to-equal "hello world"))
+      (let ((my-lexical-var nil))
+        (with-simulated-input '("hello"
+                                (setq my-lexical-var t)
+                                "RET")
+          (read-string "Enter a string: "))
+        (expect my-lexical-var
+                :to-be-truthy)))
+
+    (it "is evaluated at run time in a non-lexical environment"
+      (let ((my-non-lexical-var nil))
+        (eval
+         '(with-simulated-input '("hello"
+                                  (setq my-non-lexical-var t)
+                                  "RET")
+            (read-string "Enter a string: "))
+         nil)
+        (expect my-non-lexical-var
+                :to-be-truthy))))
+
+  (describe "should correctly propagate errors"
+
+    (it "thrown directly from expressions in KEYS"
+      (expect
+       (with-simulated-input '("hello" (error "Throwing an error from KEYS") "RET")
+         (read-string "Enter a string: "))
+       :to-throw))
+
+    (it "caused indirectly by the inputs in KEYS"
+      (expect
+       (with-simulated-input
+           "(error SPC \"Manually SPC throwing SPC an SPC error\") RET"
+         (command-execute 'eval-expression))
+       :to-throw))
+
+    (it "thrown by BODY"
+      (expect
+       (with-simulated-input
+           "hello RET"
+         (read-string "Enter a string: ")
+         (error "Throwing an error after reading input"))
+       :to-throw)
+      (expect
+       (with-simulated-input
+           "hello RET"
+         (error "Throwing an error before reading input")
+         (read-string "Enter a string: "))
+       :to-throw))
+
+    (it "from aborting via C-g in KEYS"
+      (expect
+       (condition-case nil
+           (with-simulated-input "C-g"
+             (read-string "Enter a string: "))
+         (quit 'caught-quit))
+       :to-be 'caught-quit)))
+
+  ;; TODO: Warn on no-op elements like this: any variable or
+  ;; non-string literal, or any expression known to involve only pure
+  ;; functions.
+  (it "should ignore the return value of expressions in KEYS"
+    (let ((desired-input "hello")
+          (undesired-input "goodbye"))
+      (expect
+       (with-simulated-input '((insert desired-input) undesired-input "RET")
+         (read-string "Enter a string: "))
+       :to-equal desired-input)))
 
   (it "should throw an error if the input is incomplete"
     (expect
-     (with-simulated-input "hello"
+     (with-simulated-input "hello"      ; No RET
        (read-string "Enter a string: "))
      :to-throw))
 
-  (it "should allow the input to trigger errors"
-    (expect
-
-     (with-simulated-input
-         "(error SPC \"Manually SPC throwing SPC an SPC error\") RET"
-       (command-execute 'eval-expression))
-     :to-throw))
-
-  (it "should ignore extra input after BODY has completed"
+  (it "should discard any extra input after BODY has completed"
     (expect
      (with-simulated-input
          "hello RET M-x eval-expression (error SPC \"Manually SPC throwing SPC an SPC error\") RET"
+       (read-string "Enter a string: "))
+     :to-equal "hello")
+    (expect
+     (with-simulated-input
+         '("hello RET" (error "Throwing an error after BODY has completeld."))
        (read-string "Enter a string: "))
      :to-equal "hello"))
 
@@ -57,23 +202,6 @@
        (list (read-string "First word: ")
              (read-string "Second word: ")))
      :to-equal '("hello" "world")))
-
-  (it "should allow aborting via C-g in KEYS"
-    (expect
-     (condition-case nil
-         (with-simulated-input "C-g"
-           (read-string "Enter a string: "))
-       (quit 'caught-quit))
-     :to-be 'caught-quit))
-
-  ;; https://github.com/DarwinAwardWinner/with-simulated-input/issues/4
-  (it "should work inside code that switches buffer (issue #4)"
-    (let ((orig-current-buffer (current-buffer)))
-      (with-temp-buffer
-        (let ((temp-buffer (current-buffer)))
-          (with-simulated-input "a" (read-char))
-          (expect (current-buffer) :to-equal temp-buffer)
-          (expect (current-buffer) :not :to-equal orig-current-buffer)))))
 
   (describe "used with `completing-read'"
 
@@ -106,76 +234,18 @@
          (completing-read "Choose: " my-collection nil t))
        :to-throw)))
 
-  (describe "using lisp forms in KEYS argument of `with-simulated-input'"
-
-    (it "should allow evaluating arbitrary lisp forms"
-      (expect
-       (with-simulated-input '("hello SPC" (insert "world") "RET")
-         (read-string "Enter a string: "))
-       :to-equal "hello world"))
-
-    (it "should allow KEYS to be evaluated at run time"
-      (let ((greeting "hello")
-            (target "world"))
-        (expect
-         (with-simulated-input '((insert greeting) "SPC" (insert target) "RET")
-           (read-string "Say hello: "))
-         :to-equal "hello world")))
-
-    (it "should allow a variable for KEYS"
-      (let ((keys "hello RET"))
-        (expect (with-simulated-input keys (read-string "Say hello: "))
-                :to-equal "hello")))
-
-    (it "should error for non-string variable KEYS"
-      (let ((keys (lambda () (insert "X"))))
-        (expect (with-simulated-input keys (read-string "Input: "))
-                :to-throw)))
-
-    (it "should allow lisp forms to throw errors"
-      (expect
-
-       (with-simulated-input '("hello SPC" (error "Throwing an error") "RET")
-         (read-string "Enter a string: "))
-       :to-throw))
-
-    (it "should not interpret lisp forms once BODY has finished"
-      (expect
-       (with-simulated-input '("hello SPC world RET RET"
-                               (error "Should not reach this error"))
-         (read-string "Enter a string: "))
-       :to-equal "hello world"))
-
-    (it "should evaluate lisp forms in the proper lexical environment"
-      (let ((my-lexical-var nil))
-        (with-simulated-input '("hello"
-                                (setq my-lexical-var t)
-                                "RET")
-          (read-string "Enter a string: "))
-        (expect my-lexical-var
-                :to-be-truthy)))
-
-    (it "should work in a non-lexical environment"
-      (let ((my-non-lexical-var nil))
-        (eval
-         '(with-simulated-input '("hello"
-                                  (setq my-non-lexical-var t)
-                                  "RET")
-            (read-string "Enter a string: "))
-         nil)
-        (expect my-non-lexical-var
-                :to-be-truthy)))
-
-    (it "should allow interpolation of variables into KEYS"
-      (let ((my-key-sequence "hello")
-            (my-lisp-form '(insert " world")))
-        (expect
-         (with-simulated-input
-             '(my-key-sequence
-               (eval my-lisp-form)
-               "RET")
-           (read-string "Enter a string: "))
-         :to-equal "hello world")))))
+  (describe "should not reproduce past issues:"
+    ;; https://github.com/DarwinAwardWinner/with-simulated-input/issues/4
+    (it "Issue #4: simulating input should not switch buffers"
+      (let ((orig-current-buffer (current-buffer)))
+        (with-temp-buffer
+          (let ((temp-buffer (current-buffer)))
+            (with-simulated-input "a" (read-char))
+            (expect (current-buffer) :to-equal temp-buffer)
+            (expect (current-buffer) :not :to-equal orig-current-buffer)))))
+    (xit "Issue #6: `with-simulated-input' should work in byte-compiled code"
+      (expect (call-wsi-from-bytecomp-fun)
+              :not :to-throw))))
 
 (defun time-equal-p (t1 t2)
   "Return non-nil if T1 and T2 represent the same time.
@@ -251,6 +321,10 @@ Note that there are multiple ways to represent a time, so
     (expect 'current-idle-time@simulate-idle-time :to-have-been-called)
     (expect canary-idle-time :to-be-truthy)
     (expect (time-equal-p canary-idle-time (seconds-to-time 1))))
+
+  (it "should not interfere with the normal operation of `current-idle-time'"
+    ;; Outside WSI, this will just return the normal value
+    (expect (current-idle-time) :not :to-throw))
 
   (it "should actually wait the specified time when `actually-wait' is non-nil"
     (spy-on 'sleep-for :and-call-through)

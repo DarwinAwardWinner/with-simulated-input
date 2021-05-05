@@ -1,14 +1,11 @@
-; -*- mode: emacs-lisp; lexical-binding: t; no-byte-compile: t -*-
+;; -*- mode: emacs-lisp; lexical-binding: t; no-byte-compile: t -*-
 
-;; Uncomment some calls below as needed for your project.  It is not
-;; recommended to use `melpa-unstable' unless some dependencies simply
-;; cannot be downloaded from another archive.
+(eldev-use-plugin 'undercover)
+
 (eldev-use-package-archive 'gnu)
-(eldev-use-package-archive 'melpa-stable)
+(eldev-use-package-archive 'melpa)
 
 (setq eldev-test-framework 'buttercup)
-
-(eldev-add-extra-dependencies '(test emacs) 'undercover)
 
 ;; Tell checkdoc not to demand two spaces after a period.
 (setq sentence-end-double-space nil)
