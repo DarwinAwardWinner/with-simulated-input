@@ -106,37 +106,39 @@ to check."
 KEYS is a keylist as can be passed to that function (except that
 only a list is allowed, and forms must be functions) and MAIN is
 the body form as a function."
-  (let* ((unbound-key (wsi-get-unbound-key))
+  (let* ((next-action-key (wsi-get-unbound-key))
          ;; Ensure we don't interfere with any outside catching.
-         (result-sym (make-symbol "result"))
-         (error-sym (make-symbol "error"))
+         (result-sym (make-symbol "with-simulated-input-result"))
+         (error-sym (make-symbol "with-simulated-input-error"))
          (orig-buf (current-buffer))
-         (actions (nconc (list (lambda ()
-                                 (switch-to-buffer orig-buf)
-                                 (throw result-sym (funcall main))))
-                         (cl-remove-if-not #'functionp keys)
-                         (list (lambda ()
-                                 (error "Reached end of simulated input while evaluating body")))))
+         (actions
+          (nconc
+           (list (lambda ()
+                   (switch-to-buffer orig-buf)
+                   (throw result-sym (funcall main))))
+           (cl-remove-if-not #'functionp keys)
+           (list (lambda ()
+                   (error "Reached end of simulated input while evaluating body")))))
          (overriding-terminal-local-map
           (if overriding-terminal-local-map
               (copy-keymap overriding-terminal-local-map)
             (make-sparse-keymap))))
-    (define-key overriding-terminal-local-map (kbd unbound-key)
+    (define-key overriding-terminal-local-map (kbd next-action-key)
       (lambda ()
         (interactive)
         (condition-case data
             (funcall (pop actions))
           (error (throw error-sym data)))))
     (catch result-sym
-      ;; Signals are not passed trough `read-from-minibuffer'.
+      ;; Signals are not passed through `read-from-minibuffer'.
       (let ((err (catch error-sym
                    (execute-kbd-macro
                     (kbd (mapconcat
                           #'identity
-                          (nconc (list unbound-key)
+                          (nconc (list next-action-key)
                                  (cl-loop for key in keys collect
-                                          (if (stringp key) key unbound-key))
-                                 (list unbound-key))
+                                          (if (stringp key) key next-action-key))
+                                 (list next-action-key))
                           " "))))))
         (signal (car err) (cdr err))))))
 
