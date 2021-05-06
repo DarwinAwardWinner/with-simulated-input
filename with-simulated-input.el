@@ -177,12 +177,16 @@ are propagated normally.
 
 The return value is the last form in BODY, as if it was wrapped
 in `progn'."
-  (declare (indent 1) (debug ([&or ("quote" (&rest &or stringp def-form))
-                                   (&rest &or stringp def-form)
-                                   ;; TODO Is this redundant with symbolp?
-                                   "nil"
-                                   stringp symbolp]
-                              def-body)))
+  (declare
+   (indent 1)
+   (debug ([&or ("quote" (&rest &or stringp def-form)) ; quoted list of string-or-form
+                (&rest &or stringp def-form) ; un-quoted same
+                stringp symbolp         ; literal string; variable name (or nil)
+                ([&or functionp macrop] &rest form) ; arbitrary lisp function call
+                ]
+           def-body)))
+  ;; TODO Warn on empty body
+  ;; TODO Support integers (i.e. single characters) in KEYS
   (cond
    ((null keys)
     ;; (message "Keys is nil")
@@ -215,8 +219,7 @@ in `progn'."
    ((and (listp keys)
          (not (eq (car keys) 'quote))
          (or (functionp (car keys))
-             (macrop (car keys))
-             (subrp (indirect-function (car keys)))))
+             (macrop (car keys))))
     ;; (message "Keys is lisp form: %S" keys)
     `(let ((evaluated-keys (,@keys)))
        ;; (message "Evaluated keys: %S" evaluated-keys)
