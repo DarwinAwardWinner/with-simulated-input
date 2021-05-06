@@ -176,7 +176,7 @@ are propagated normally.
 The return value is the last form in BODY, as if it was wrapped
 in `progn'."
   (declare (indent 1) (debug ([&or ("quote" (&rest &or stringp def-form))
-                                   (&rest &or stringp def-form)
+                                   (&rest &or stringp form)
                                    stringp symbolp]
                               def-body)))
   (if (and (symbolp keys) keys)
