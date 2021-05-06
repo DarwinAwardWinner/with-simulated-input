@@ -180,7 +180,7 @@ in `progn'."
                                    stringp symbolp]
                               def-body)))
   (if (and (symbolp keys) keys)
-      `(progn
+      `(when ,keys
          (cl-check-type ,keys string)
          (with-simulated-input-1
           (lambda ()
