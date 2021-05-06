@@ -60,6 +60,32 @@
          (read-string "Enter a string: "))
        :to-equal "hello world"))
 
+    (it "is an un-quoted list of literal strings"
+      (expect
+       (with-simulated-input ("hello" "RET")
+         (read-string "Enter a string: "))
+       :to-equal "hello"))
+
+    (it "is an un-quoted list of lisp forms"
+      (expect
+       (with-simulated-input ((insert "hello") (exit-minibuffer))
+         (read-string "Enter a string: "))
+       :to-equal "hello"))
+
+    (it "is an un-quoted list of strings and lisp forms"
+      (expect
+       (with-simulated-input ((insert "hello") "RET")
+         (read-string "Enter a string: "))
+       :to-equal "hello")
+      (expect
+       (with-simulated-input ("hello" (exit-minibuffer))
+         (read-string "Enter a string: "))
+       :to-equal "hello")
+      (expect
+       (with-simulated-input ("hello SPC" (insert "world") "RET")
+         (read-string "Enter a string: "))
+       :to-equal "hello world"))
+
     (it "is a variable containing any of the above"
       (cl-loop
        for input in
@@ -88,14 +114,8 @@
        (with-simulated-input (concat "hello" " " "RET")
          (read-string "Enter a string: "))
        :to-equal "hello")
-      (let ((my-key-sequence "hello")
+      (let ((my-key-sequence (kbd "hello"))
             (my-lisp-form '(insert " world")))
-        (expect
-         (with-simulated-input '((execute-kbd-macro my-key-sequence)
-                                 (eval my-lisp-form)
-                                 "RET")
-           (read-string "Enter a string: "))
-         :to-equal "hello world")
         (expect
          (with-simulated-input (list
                                 my-key-sequence
@@ -104,10 +124,22 @@
            (read-string "Enter a string: "))
          :to-equal "hello world")
         (expect
+         (with-simulated-input '((execute-kbd-macro my-key-sequence)
+                                 (eval my-lisp-form)
+                                 "RET")
+           (read-string "Enter a string: "))
+         :to-equal "hello world")
+        (expect
          (with-simulated-input (list
                                 `(execute-kbd-macro ,my-key-sequence)
                                 `(eval ,my-lisp-form)
                                 "RET")
+           (read-string "Enter a string: "))
+         :to-equal "hello world")
+        (expect
+         (with-simulated-input `((execute-kbd-macro ,my-key-sequence)
+                                 (eval ,my-lisp-form)
+                                 "RET")
            (read-string "Enter a string: "))
          :to-equal "hello world")))
 
