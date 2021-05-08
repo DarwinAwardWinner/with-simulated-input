@@ -120,7 +120,7 @@ functions, which are called only for their side effects)."
                    (throw result-sym (funcall main))))
            (cl-remove-if-not #'functionp keys)
            (list (lambda ()
-                   (error "Reached end of simulated input while evaluating body")))))
+                   (error "Aborted evaluation of BODY after reaching end of KEYS without returning")))))
          (overriding-terminal-local-map
           (if overriding-terminal-local-map
               (copy-keymap overriding-terminal-local-map)
@@ -192,45 +192,39 @@ in `progn'."
   ;; TODO Support integers (i.e. single characters) in KEYS
   (cond
    ((null keys)
-    ;; (message "Keys is nil")
     `(with-simulated-input-1
       (lambda ()
         ,@body)
       nil))
    ((and keys (symbolp keys))
-    ;; (message "keys is symbol: %S" keys)
-    `(progn
-       (cond
-        ((null ,keys)
-         (with-simulated-input-1
-          (lambda ()
-            ,@body)
-          nil))
-        ((stringp ,keys)
-         (with-simulated-input-1
-          (lambda ()
-            ,@body)
-          ,keys))
-        ((listp ,keys)
-         (apply
-          #'with-simulated-input-1
-          (lambda ()
-            ,@body)
-          (cl-loop for key in ,keys collect (if (stringp key) key `(lambda () ,key)))))
-        (t
-         (error "INVALID VAR VALUE: %S" ,keys)))))
+    `(cond
+     ((null ,keys)
+      (with-simulated-input-1
+       (lambda ()
+         ,@body)
+       nil))
+     ((stringp ,keys)
+      (with-simulated-input-1
+       (lambda ()
+         ,@body)
+       ,keys))
+     ((listp ,keys)
+      (apply
+       #'with-simulated-input-1
+       (lambda ()
+         ,@body)
+       (cl-loop for key in ,keys collect (if (stringp key) key `(lambda () ,key)))))
+     (t
+      (error "KEYS must be a string or list, not %s: %s = %S"
+             (type-of ,keys) ',keys ,keys))))
    ((and (listp keys)
          (not (eq (car keys) 'quote))
          (or (functionp (car keys))
              (macrop (car keys))))
-    ;; (message "Keys is lisp form: %S" keys)
     `(let ((evaluated-keys (,@keys)))
-       ;; (message "Evaluated keys: %S" evaluated-keys)
        (pcase evaluated-keys
          (`(quote ,x) (setq evaluated-keys x))
          ((guard (not (listp evaluated-keys))) (cl-callf list evaluated-keys)))
-       ;; (message "Evaluated keys transformed: %S"
-       ;;          (cl-loop for key in evaluated-keys collect (if (stringp key) key `(lambda () ,key))))
        (apply
         #'with-simulated-input-1
         (lambda ()

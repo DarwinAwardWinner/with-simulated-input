@@ -178,6 +178,28 @@
         (expect my-non-lexical-var
                 :to-be-truthy))))
 
+  (describe "should throw an error when KEYS"
+
+    (it "is an invalid literal expression"
+      (expect
+       (with-simulated-input :invalid-input
+         (read-string "Enter a string: "))
+       :to-throw 'error)
+      (expect
+       (with-simulated-input ["vectors" "are" "invalid"]
+         (read-string "Enter a string: "))
+       :to-throw 'error))
+
+    (it "is a variable with an invalid value"
+      (cl-loop
+       for input in
+       '(:invalid-input
+         ["vectors" "are" "invalid"])
+       do (expect
+           (with-simulated-input input
+             (read-string "Enter a string: "))
+           :to-throw 'error))))
+
   (describe "should correctly propagate an error when it"
 
     (it "is thrown directly from expressions in KEYS"
