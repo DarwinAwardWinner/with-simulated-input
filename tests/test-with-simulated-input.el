@@ -37,6 +37,7 @@ doesn't seem to properly put BODY in the correct lexical scope,
 but it's good enough for use in this test suite. Lexical scopes
 established *inside* BODY work just fine, so just make sure to
 put this outside any relevant `let' forms."
+  (declare (debug body))
   `(eval
     '(progn
        ,@(cl-loop for expr in body
@@ -58,6 +59,7 @@ put this outside any relevant `let' forms."
 
 BODY is wrapped in `progn-at-runtime', so warnings produced
 during macro expansion will be caught as well."
+  (declare (debug body))
   `(let ((warnings-displayed-count 0))
      (prog1 (progn-at-runtime ,@body)
        (expect warnings-displayed-count :to-be-greater-than 0))))
