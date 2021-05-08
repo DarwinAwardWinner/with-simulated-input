@@ -28,7 +28,13 @@
   "Like `progn', but evaluate BODY entirely at runtime.
 
 This is useful if BODY involves macros and you want to defer the
-expansion of those macros until BODY is evaluated."
+expansion of those macros until BODY is evaluated.
+
+Note: I don't recommend this function for general use, because it
+doesn't seem to properly put BODY in the correct lexical scope,
+but it's good enough for use in this test suite. Lexical scopes
+established *inside* BODY work just fine, so just make sure to
+put this outside any relevant `let' forms."
   `(eval
     '(progn
        ,@(cl-loop for expr in body
@@ -288,18 +294,19 @@ during macro expansion will be caught as well."
   ;; non-string literal, or any expression known to involve only pure
   ;; functions.
   (it "should ignore the return value of non-literal expressions in KEYS"
-    (let ((desired-input "hello")
-          (undesired-input "goodbye"))
-      (expect
-       (with-simulated-input
-           '((prog1 undesired-input
-               ;; This is the only thing that should actually get
-               ;; inserted.
-               (insert desired-input))
-             undesired-input
-             "RET")
-         (read-string "Enter a string: "))
-       :to-equal desired-input)))
+    (expect-warning
+     (let ((desired-input "hello")
+           (undesired-input "goodbye"))
+       (expect
+        (with-simulated-input
+            '((prog1 undesired-input
+                ;; This is the only thing that should actually get
+                ;; inserted.
+                (insert desired-input))
+              undesired-input
+              "RET")
+          (read-string "Enter a string: "))
+        :to-equal desired-input))))
 
   (it "should throw an error if the input is incomplete"
     (expect

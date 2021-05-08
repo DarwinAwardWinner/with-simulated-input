@@ -191,21 +191,30 @@ in `progn'."
            body)))
   ;; TODO Support integers (i.e. single characters) in KEYS
   (cond
-   ((null body)
-    (display-warning 'with-simulated-input
-                     "BODY is empty; KEYS will not be used")
-    nil)
+   ;; This case applies when BODY consists of only constant
+   ;; expressions (or no expressions at all). Since all the
+   ;; expressions are constant, there's no point in evaluating any of
+   ;; them except the last one, and there's no possibility that any
+   ;; input will be read, so we can skip all the proprocessing and
+   ;; just return the last element of BODY.
    ((not (cl-find-if-not #'hack-one-local-variable-constantp body))
-    (display-warning 'with-simulated-input
-                     "BODY consists of only constant expressions; KEYS will not be used")
-    ;; Since all the expressions are constant, there's no point in
-    ;; evaluating any of them except the last one.
+    (display-warning
+     'with-simulated-input
+     (if body
+         "BODY consists of only constant expressions; KEYS will be ignored."
+       "BODY is empty; KEYS will be ignored."))
     (car (last body)))
+   ;; If KEYS is nil, we don't have to do any pre-processing on it. We
+   ;; still need to call `with-simulated-input-1', which will evaluate
+   ;; BODY and throw an error if it tries to read input.
    ((null keys)
     `(with-simulated-input-1
       (lambda ()
         ,@body)
       nil))
+   ;; If KEYS is a symbol, then it is a variable reference. This is
+   ;; kind of janky and should probably be deprecated, except possibly
+   ;; in the case where it evaluates to a string.
    ((and keys (symbolp keys))
     `(cond
       ((null ,keys)
@@ -227,10 +236,16 @@ in `progn'."
       (t
        (error "KEYS must be a string or list, not %s: %s = %S"
               (type-of ,keys) ',keys ,keys))))
+   ;; If KEYS is a list whose first element is not `quote', then it is
+   ;; a function call, whose return value will be used as the value of
+   ;; KEYS. This is *definitely* deprecated.
    ((and (listp keys)
          (not (eq (car keys) 'quote))
          (or (functionp (car keys))
              (macrop (car keys))))
+    (display-warning
+     'with-simulated-input
+     "Passing a function call as KEYS is deprecated and will not be supported in future releases.")
     (let ((evaluated-keys-sym (make-symbol "evaluated-keys")))
       `(let ((,evaluated-keys-sym (,@keys)))
          (pcase ,evaluated-keys-sym
@@ -238,26 +253,56 @@ in `progn'."
             (prog1 (setq ,evaluated-keys-sym x)
               (display-warning
                'with-simulated-input
-               "Passing KEYS as a quoted list is deprecated.")))
+               "Passing KEYS as a quoted list is deprecated and will not be supported in future releases.")))
            ((guard (not (listp ,evaluated-keys-sym))) (cl-callf list ,evaluated-keys-sym)))
          (apply
           #'with-simulated-input-1
           (lambda ()
             ,@body)
-          (cl-loop for key in ,evaluated-keys-sym collect (if (stringp key) key `(lambda () ,key)))))))
+          (cl-loop
+           for key in ,evaluated-keys-sym
+           if (stringp key) collect key
+           ;; It is occasionally useful to include nil as an element of
+           ;; KEYS, so we don't produce a warning for it.
+           else if (null key) do (ignore)
+           else if (hack-one-local-variable-constantp key) do
+           (display-warning
+            'with-simulated-input-1
+            "Non-string forms in KEYS are evaluated for side effects only. Non-string constants in KEYS have no effect.")
+           else if (symbolp key) do
+           (display-warning
+            'with-simulated-input-1
+            "Non-string forms in KEYS are evaluated for side effects only. Variables in KEYS have no effect.")
+           else collect `(lambda () ,key))))))
+   ;; The primary supported KEYS syntax: either a string, or an
+   ;; un-quoted list of strings and list expressions to execute as
+   ;; input.
    (t
-    ;; (message "Keys is something else: %S" keys)
     (pcase keys
       (`(quote ,x)
        (prog1 (setq keys x)
          (display-warning
           'with-simulated-input
-          "Passing KEYS as a quoted list is deprecated.")))
+          "Passing KEYS as a quoted list is deprecated and will not be supported in future releases.")))
       ((guard (not (listp keys))) (cl-callf list keys)))
     `(with-simulated-input-1
       (lambda ()
         ,@body)
-      ,@(cl-loop for key in keys collect (if (stringp key) key `(lambda () ,key)))))))
+      ,@(cl-loop
+         for key in keys
+         if (stringp key) collect key
+         ;; It is occasionally useful to include nil as an element of
+         ;; KEYS, so we don't produce a warning for it.
+         else if (null key) do (ignore)
+         else if (hack-one-local-variable-constantp key) do
+         (display-warning
+          'with-simulated-input-1
+          "Non-string forms in KEYS are evaluated for side effects only. Non-string constants in KEYS have no effect.")
+         else if (symbolp key) do
+         (display-warning
+          'with-simulated-input-1
+          "Non-string forms in KEYS are evaluated for side effects only. Variables in KEYS have no effect.")
+         else collect `(lambda () ,key))))))
 
 (defvar wsi-simulated-idle-time nil
   "The current simulated idle time.
