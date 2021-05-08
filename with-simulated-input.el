@@ -227,12 +227,29 @@ in `progn'."
         (lambda ()
           ,@body)
         ,keys))
-      ((listp ,keys)
+      ((consp ,keys)
+       (display-warning
+        'with-simulated-input
+        "Passing a variable with a list value as KEYS is deprecated and will not be supported in future releases.")
        (apply
         #'with-simulated-input-1
         (lambda ()
           ,@body)
-        (cl-loop for key in ,keys collect (if (stringp key) key `(lambda () ,key)))))
+        (cl-loop
+           for key in ,keys
+           if (stringp key) collect key
+           ;; It is occasionally useful to include nil as an element of
+           ;; KEYS, so we don't produce a warning for it.
+           else if (null key) do (ignore)
+           else if (hack-one-local-variable-constantp key) do
+           (display-warning
+            'with-simulated-input-1
+            "Non-string forms in KEYS are evaluated for side effects only. Non-string constants in KEYS have no effect.")
+           else if (symbolp key) do
+           (display-warning
+            'with-simulated-input-1
+            "Non-string forms in KEYS are evaluated for side effects only. Variables in KEYS have no effect.")
+           else collect `(lambda () ,key))))
       (t
        (error "KEYS must be a string or list, not %s: %s = %S"
               (type-of ,keys) ',keys ,keys))))
@@ -253,7 +270,7 @@ in `progn'."
             (prog1 (setq ,evaluated-keys-sym x)
               (display-warning
                'with-simulated-input
-               "Passing KEYS as a quoted list is deprecated and will not be supported in future releases.")))
+               "Passing a quoted list as KEYS is deprecated and will not be supported in future releases.")))
            ((guard (not (listp ,evaluated-keys-sym))) (cl-callf list ,evaluated-keys-sym)))
          (apply
           #'with-simulated-input-1
@@ -283,7 +300,7 @@ in `progn'."
        (prog1 (setq keys x)
          (display-warning
           'with-simulated-input
-          "Passing KEYS as a quoted list is deprecated and will not be supported in future releases.")))
+          "Passing a quoted list as KEYS is deprecated and will not be supported in future releases.")))
       ((guard (not (listp keys))) (cl-callf list keys)))
     `(with-simulated-input-1
       (lambda ()
