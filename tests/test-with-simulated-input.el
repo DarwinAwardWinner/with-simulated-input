@@ -45,8 +45,11 @@ put this outside any relevant `let' forms."
   "Count of warnings that have been displayed.")
 (defsubst reset-warnings-count (&optional n)
   (setq warnings-displayed-count (or n 0)))
-(define-advice display-warning (:before (&rest _args) count-calls)
+
+;; No `define-advice' on Emacs 24.
+(defun display-warning@count-calls (&rest _args)
   (cl-incf warnings-displayed-count))
+(advice-add 'display-warning :before #'display-warning@count-calls)
 
 (defmacro expect-warning (&rest body)
   "Evaluate BODY and verify that it produces a warning.
