@@ -24,10 +24,37 @@
     (expect (wsi-get-unbound-key "" '("abc" "123"))
             :to-throw 'error)))
 
+(defmacro progn-at-runtime (&rest body)
+  "Like `progn', but evaluate BODY entirely at runtime.
+
+This is useful if BODY involves macros and you want to defer the
+expansion of those macros until BODY is evaluated."
+  `(eval
+    '(progn
+       ,@(cl-loop for expr in body
+                  collect `(funcall (lambda () ,expr)))
+    lexical-binding)))
+
+(defvar warnings-displayed-count 0
+  "Count of warnings that have been displayed.")
+(defsubst reset-warnings-count (&optional n)
+  (setq warnings-displayed-count (or n 0)))
+(define-advice display-warning (:before (&rest _args) count-calls)
+  (cl-incf warnings-displayed-count))
+
+(defmacro expect-warning (&rest body)
+  "Evaluate BODY and verify that it produces a warning.
+
+BODY is wrapped in `progn-at-runtime', so warnings produced
+during macro expansion will be caught as well."
+  `(let ((warnings-displayed-count 0))
+     (prog1 (progn-at-runtime ,@body)
+       (expect warnings-displayed-count :to-be-greater-than 0))))
+
 (describe "`with-simulated-input'"
 
   (before-each
-    (spy-on 'display-warning :and-call-through))
+    (setq warnings-displayed-count 0))
 
   (describe "should work when KEYS"
 
@@ -37,31 +64,39 @@
          (read-string "Enter a string: "))
        :to-equal "hello"))
 
+    ;; Deprecated
     (it "is a quoted list of literal strings"
-      (expect
-       (with-simulated-input '("hello" "RET")
-         (read-string "Enter a string: "))
-       :to-equal "hello"))
+      (expect-warning
+       (expect
+        (with-simulated-input '("hello" "RET")
+          (read-string "Enter a string: "))
+        :to-equal "hello")))
 
+    ;; Deprecated
     (it "is a quoted list of lisp forms"
-      (expect
-       (with-simulated-input '((insert "hello") (exit-minibuffer))
-         (read-string "Enter a string: "))
-       :to-equal "hello"))
+      (expect-warning
+       (expect
+        (with-simulated-input '((insert "hello") (exit-minibuffer))
+          (read-string "Enter a string: "))
+        :to-equal "hello")))
 
+    ;; Deprecated
     (it "is a quoted list of strings and lisp forms"
-      (expect
-       (with-simulated-input '((insert "hello") "RET")
-         (read-string "Enter a string: "))
-       :to-equal "hello")
-      (expect
-       (with-simulated-input '("hello" (exit-minibuffer))
-         (read-string "Enter a string: "))
-       :to-equal "hello")
-      (expect
-       (with-simulated-input '("hello SPC" (insert "world") "RET")
-         (read-string "Enter a string: "))
-       :to-equal "hello world"))
+      (expect-warning
+       (expect
+        (with-simulated-input '((insert "hello") "RET")
+          (read-string "Enter a string: "))
+        :to-equal "hello"))
+      (expect-warning
+       (expect
+        (with-simulated-input '("hello" (exit-minibuffer))
+          (read-string "Enter a string: "))
+        :to-equal "hello"))
+      (expect-warning
+       (expect
+        (with-simulated-input '("hello SPC" (insert "world") "RET")
+          (read-string "Enter a string: "))
+        :to-equal "hello world")))
 
     (it "is an un-quoted list of literal strings"
       (expect
@@ -89,6 +124,7 @@
          (read-string "Enter a string: "))
        :to-equal "hello world"))
 
+    ;; TODO: Decide whether to deprecate this
     (it "is a variable containing any of the above"
       (cl-loop
        for input in
@@ -102,49 +138,57 @@
              (read-string "Enter a string: "))
            :to-equal "hello")))
 
-    ;; This syntax is not known to be used in any real code
+    ;; This syntax is not known to be used in any real code.
+    ;; Deprecated.
     (it "is an arbitrary expression evaluating to any of the above"
-      (expect
-       (with-simulated-input (list "hello" "RET")
-         (read-string "Enter a string: "))
-       :to-equal "hello")
-      (expect
-       (let ((my-input "hello"))
-         (with-simulated-input (list (list 'insert my-input) "RET")
-           (read-string "Enter a string: ")))
-       :to-equal "hello")
-      (expect
-       (with-simulated-input (concat "hello" " " "RET")
-         (read-string "Enter a string: "))
-       :to-equal "hello")
-      (let ((my-key-sequence (kbd "hello"))
-            (my-lisp-form '(insert " world")))
-        (expect
-         (with-simulated-input (list
-                                my-key-sequence
-                                my-lisp-form
-                                "RET")
-           (read-string "Enter a string: "))
-         :to-equal "hello world")
-        (expect
-         (with-simulated-input '((execute-kbd-macro my-key-sequence)
-                                 (eval my-lisp-form)
-                                 "RET")
-           (read-string "Enter a string: "))
-         :to-equal "hello world")
-        (expect
-         (with-simulated-input (list
-                                `(execute-kbd-macro ,my-key-sequence)
-                                `(eval ,my-lisp-form)
-                                "RET")
-           (read-string "Enter a string: "))
-         :to-equal "hello world")
-        (expect
-         (with-simulated-input `((execute-kbd-macro ,my-key-sequence)
-                                 (eval ,my-lisp-form)
-                                 "RET")
-           (read-string "Enter a string: "))
-         :to-equal "hello world")))
+      (expect-warning
+       (expect
+        (with-simulated-input (list "hello" "RET")
+          (read-string "Enter a string: "))
+        :to-equal "hello"))
+      (expect-warning
+       (expect
+        (let ((my-input "hello"))
+          (with-simulated-input (list (list 'insert my-input) "RET")
+            (read-string "Enter a string: ")))
+        :to-equal "hello"))
+      (expect-warning
+       (expect
+        (with-simulated-input (concat "hello" " " "RET")
+          (read-string "Enter a string: "))
+        :to-equal "hello")
+       (let ((my-key-sequence (kbd "hello"))
+             (my-lisp-form '(insert " world")))
+         (expect-warning
+          (expect
+           (with-simulated-input (list
+                                  my-key-sequence
+                                  my-lisp-form
+                                  "RET")
+             (read-string "Enter a string: "))
+           :to-equal "hello world"))
+         (expect-warning
+          (expect
+           (with-simulated-input '((execute-kbd-macro my-key-sequence)
+                                   (eval my-lisp-form)
+                                   "RET")
+             (read-string "Enter a string: "))
+           :to-equal "hello world"))
+         (expect-warning
+          (expect
+           (with-simulated-input (list
+                                  `(execute-kbd-macro ,my-key-sequence)
+                                  `(eval ,my-lisp-form)
+                                  "RET")
+             (read-string "Enter a string: "))
+           :to-equal "hello world"))
+         (expect-warning
+          (expect
+           (with-simulated-input `((execute-kbd-macro ,my-key-sequence)
+                                   (eval ,my-lisp-form)
+                                   "RET")
+             (read-string "Enter a string: "))
+           :to-equal "hello world")))))
 
     ;; This syntax is not known to be used in any real code
     (it "is evaluated at run time in a lexical environment"
@@ -180,31 +224,6 @@
          nil)
         (expect my-non-lexical-var
                 :to-be-truthy))))
-
-  (describe "should display a deprecation warning when KEYS"
-
-    ;; We need `eval' in these tests to ensure the macro is evalauted
-    ;; during the test, not while loading the file.
-    (it "is a quoted list of literal strings"
-      (eval '(with-simulated-input '("hello" "RET")
-               (read-string "Enter a string: ")))
-      (expect #'display-warning :to-have-been-called))
-
-    (it "is a quoted list of lisp forms"
-      (eval '(with-simulated-input '((insert "hello") (exit-minibuffer))
-               (read-string "Enter a string: ")))
-      (expect #'display-warning :to-have-been-called))
-
-    (it "is a quoted list of strings and lisp forms"
-      (eval
-       '(progn
-          (with-simulated-input '((insert "hello") "RET")
-            (read-string "Enter a string: "))
-          (with-simulated-input '("hello" (exit-minibuffer))
-            (read-string "Enter a string: "))
-          (with-simulated-input '("hello SPC" (insert "world") "RET")
-            (read-string "Enter a string: "))))
-      (expect #'display-warning :to-have-been-called-times 3)))
 
   (describe "should throw an error when KEYS"
 
@@ -356,15 +375,15 @@
   (it "should allow an empty/constant BODY, with a warning"
     ;; We need `eval' to ensure the macro is evalauted during the
     ;; test, not while loading the file.
-    (eval
-     '(progn
-        (expect (with-simulated-input "Is SPC anybody SPC listening? RET")
-                :to-be nil)
-        (expect (with-simulated-input "Is SPC anybody SPC listening? RET" t)
-                :to-be t)
-        (expect (with-simulated-input "Is SPC anybody SPC listening? RET" 1 2 3)
-                :to-equal 3)))
-    (expect #'display-warning :to-have-been-called-times 3))
+    (expect-warning
+     (expect (with-simulated-input "Is SPC anybody SPC listening? RET")
+             :to-be nil))
+    (expect-warning
+     (expect (with-simulated-input "Is SPC anybody SPC listening? RET" t)
+             :to-be t))
+    (expect-warning
+     (expect (with-simulated-input "Is SPC anybody SPC listening? RET" 1 2 3)
+             :to-equal 3)))
 
   (describe "used with `completing-read'"
 
