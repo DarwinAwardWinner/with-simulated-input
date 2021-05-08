@@ -29,11 +29,11 @@ jobs:
           - 24.5
           - 24.4
           - snapshot
-    # env:
-    #   # We only generate a coverage report for one Emacs version
-    #   # (generally the latest release version) in order to avoid
-    #   # duplicate reports.
-    #   coveralls_emacs_version: 27.1
+    env:
+      # The test suite uses a macro that can't be debugged properly in
+      # versions lower than 27, so we disable coverage on those
+      # versions.
+      coveralls_skip_versions: 24.4 24.5 25.3 26.3
     steps:
     - name: Set up Emacs
       uses: purcell/setup-emacs@master
@@ -54,12 +54,11 @@ jobs:
         eldev -p -dtT test
 
     - name: Run the test suite in source mode (for undercover)
-      # if: ${{ matrix.emacs_version == env.coveralls_emacs_version }}
+      if: ${{ ! contains(env.coveralls_skip_versions, matrix.emacs_version) }}
       env:
         COVERALLS_FLAG_NAME: Emacs ${{ matrix.emacs_version }}
         COVERALLS_PARALLEL: 1
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
       run: |
         eldev -s -dtT test
   finalize:
