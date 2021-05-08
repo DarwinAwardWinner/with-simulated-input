@@ -103,13 +103,15 @@ to check."
 ;;;###autoload
 (defun with-simulated-input-1 (main &rest keys)
   "Internal `with-simulated-input' helper.
-KEYS is a keylist as can be passed to that function (except that
-only a list is allowed, and forms must be functions) and MAIN is
-the body form as a function."
+
+MAIN is a zero-argument function containing the body forms to be
+evaluated, and KEYS is a list of key sequences (as strings) or
+other actions to simulate user interaction (as zero-argument
+functions, which are called only for their side effects)."
   (let* ((next-action-key (wsi-get-unbound-key))
          ;; Ensure we don't interfere with any outside catching.
-         (result-sym (make-symbol "with-simulated-input-result"))
-         (error-sym (make-symbol "with-simulated-input-error"))
+         (result-sym (make-symbol "result"))
+         (error-sym (make-symbol "error"))
          (orig-buf (current-buffer))
          (actions
           (nconc
@@ -179,12 +181,13 @@ The return value is the last form in BODY, as if it was wrapped
 in `progn'."
   (declare
    (indent 1)
-   (debug ([&or ("quote" (&rest &or stringp def-form)) ; quoted list of string-or-form
-                (&rest &or stringp def-form) ; un-quoted same
-                stringp symbolp         ; literal string; variable name (or nil)
+   (debug ([&or ("quote" (&rest &or stringp form)) ; quoted list of string-or-form
+                (&rest &or stringp form) ; un-quoted same
+                stringp                  ; literal string
+                symbolp                  ; variable name (or nil)
                 ([&or functionp macrop] &rest form) ; arbitrary lisp function call
                 ]
-           def-body)))
+           body)))
   ;; TODO Warn on empty body
   ;; TODO Support integers (i.e. single characters) in KEYS
   (cond
