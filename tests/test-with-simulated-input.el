@@ -178,22 +178,22 @@
         (expect my-non-lexical-var
                 :to-be-truthy))))
 
-  (describe "should correctly propagate errors"
+  (describe "should correctly propagate an error when it"
 
-    (it "thrown directly from expressions in KEYS"
+    (it "is thrown directly from expressions in KEYS"
       (expect
        (with-simulated-input '("hello" (error "Throwing an error from KEYS") "RET")
          (read-string "Enter a string: "))
        :to-throw 'error '("Throwing an error from KEYS")))
 
-    (it "caused indirectly by the inputs in KEYS"
+    (it "is caused indirectly by the inputs in KEYS"
       (expect
        (with-simulated-input
            "(error SPC \"Manually SPC throwing SPC an SPC error\") RET"
          (command-execute 'eval-expression))
        :to-throw 'error '("Manually throwing an error")))
 
-    (it "thrown by BODY"
+    (it "is thrown by BODY"
       (expect
        (with-simulated-input
            "hello RET"
@@ -207,7 +207,7 @@
          (read-string "Enter a string: "))
        :to-throw 'error '("Throwing an error before reading input")))
 
-    (it "from aborting via C-g in KEYS"
+    (it "is caused by C-g in KEYS"
       (expect
        (condition-case nil
            (with-simulated-input "C-g"
@@ -218,11 +218,17 @@
   ;; TODO: Warn on no-op elements like this: any variable or
   ;; non-string literal, or any expression known to involve only pure
   ;; functions.
-  (it "should ignore the return value of expressions in KEYS"
+  (it "should ignore the return value of non-literal expressions in KEYS"
     (let ((desired-input "hello")
           (undesired-input "goodbye"))
       (expect
-       (with-simulated-input '((insert desired-input) undesired-input "RET")
+       (with-simulated-input
+           '((prog1 undesired-input
+               ;; This is the only thing that should actually get
+               ;; inserted.
+               (insert desired-input))
+             undesired-input
+             "RET")
          (read-string "Enter a string: "))
        :to-equal desired-input)))
 
