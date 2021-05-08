@@ -44,6 +44,7 @@
 ;;
 ;;; Code:
 
+(require 'files)
 (require 'cl-lib)
 
 (cl-defun wsi-key-bound-p (key)
@@ -188,9 +189,18 @@ in `progn'."
                 ([&or functionp macrop] &rest form) ; arbitrary lisp function call
                 ]
            body)))
-  ;; TODO Warn on empty body
   ;; TODO Support integers (i.e. single characters) in KEYS
   (cond
+   ((null body)
+    (display-warning 'with-simulated-input
+                     "BODY is empty; KEYS will not be used")
+    nil)
+   ((not (cl-find-if-not #'hack-one-local-variable-constantp body))
+    (display-warning 'with-simulated-input
+                     "BODY consists of only constant expressions; KEYS will not be used")
+    ;; Since all the expressions are constant, there's no point in
+    ;; evaluating any of them except the last one.
+    (car (last body)))
    ((null keys)
     `(with-simulated-input-1
       (lambda ()
@@ -198,42 +208,51 @@ in `progn'."
       nil))
    ((and keys (symbolp keys))
     `(cond
-     ((null ,keys)
-      (with-simulated-input-1
-       (lambda ()
-         ,@body)
-       nil))
-     ((stringp ,keys)
-      (with-simulated-input-1
-       (lambda ()
-         ,@body)
-       ,keys))
-     ((listp ,keys)
-      (apply
-       #'with-simulated-input-1
-       (lambda ()
-         ,@body)
-       (cl-loop for key in ,keys collect (if (stringp key) key `(lambda () ,key)))))
-     (t
-      (error "KEYS must be a string or list, not %s: %s = %S"
-             (type-of ,keys) ',keys ,keys))))
-   ((and (listp keys)
-         (not (eq (car keys) 'quote))
-         (or (functionp (car keys))
-             (macrop (car keys))))
-    `(let ((evaluated-keys (,@keys)))
-       (pcase evaluated-keys
-         (`(quote ,x) (setq evaluated-keys x))
-         ((guard (not (listp evaluated-keys))) (cl-callf list evaluated-keys)))
+      ((null ,keys)
+       (with-simulated-input-1
+        (lambda ()
+          ,@body)
+        nil))
+      ((stringp ,keys)
+       (with-simulated-input-1
+        (lambda ()
+          ,@body)
+        ,keys))
+      ((listp ,keys)
        (apply
         #'with-simulated-input-1
         (lambda ()
           ,@body)
-        (cl-loop for key in evaluated-keys collect (if (stringp key) key `(lambda () ,key))))))
+        (cl-loop for key in ,keys collect (if (stringp key) key `(lambda () ,key)))))
+      (t
+       (error "KEYS must be a string or list, not %s: %s = %S"
+              (type-of ,keys) ',keys ,keys))))
+   ((and (listp keys)
+         (not (eq (car keys) 'quote))
+         (or (functionp (car keys))
+             (macrop (car keys))))
+    (let ((evaluated-keys-sym (make-symbol "evaluated-keys")))
+      `(let ((,evaluated-keys-sym (,@keys)))
+         (pcase ,evaluated-keys-sym
+           (`(quote ,x)
+            (prog1 (setq ,evaluated-keys-sym x)
+              (display-warning
+               'with-simulated-input
+               "Passing KEYS as a quoted list is deprecated.")))
+           ((guard (not (listp ,evaluated-keys-sym))) (cl-callf list ,evaluated-keys-sym)))
+         (apply
+          #'with-simulated-input-1
+          (lambda ()
+            ,@body)
+          (cl-loop for key in ,evaluated-keys-sym collect (if (stringp key) key `(lambda () ,key)))))))
    (t
     ;; (message "Keys is something else: %S" keys)
     (pcase keys
-      (`(quote ,x) (setq keys x))
+      (`(quote ,x)
+       (prog1 (setq keys x)
+         (display-warning
+          'with-simulated-input
+          "Passing KEYS as a quoted list is deprecated.")))
       ((guard (not (listp keys))) (cl-callf list keys)))
     `(with-simulated-input-1
       (lambda ()

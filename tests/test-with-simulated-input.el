@@ -26,6 +26,9 @@
 
 (describe "`with-simulated-input'"
 
+  (before-each
+    (spy-on 'display-warning :and-call-through))
+
   (describe "should work when KEYS"
 
     (it "is a literal string"
@@ -178,6 +181,31 @@
         (expect my-non-lexical-var
                 :to-be-truthy))))
 
+  (describe "should display a deprecation warning when KEYS"
+
+    ;; We need `eval' in these tests to ensure the macro is evalauted
+    ;; during the test, not while loading the file.
+    (it "is a quoted list of literal strings"
+      (eval '(with-simulated-input '("hello" "RET")
+               (read-string "Enter a string: ")))
+      (expect #'display-warning :to-have-been-called))
+
+    (it "is a quoted list of lisp forms"
+      (eval '(with-simulated-input '((insert "hello") (exit-minibuffer))
+               (read-string "Enter a string: ")))
+      (expect #'display-warning :to-have-been-called))
+
+    (it "is a quoted list of strings and lisp forms"
+      (eval
+       '(progn
+          (with-simulated-input '((insert "hello") "RET")
+            (read-string "Enter a string: "))
+          (with-simulated-input '("hello" (exit-minibuffer))
+            (read-string "Enter a string: "))
+          (with-simulated-input '("hello SPC" (insert "world") "RET")
+            (read-string "Enter a string: "))))
+      (expect #'display-warning :to-have-been-called-times 3)))
+
   (describe "should throw an error when KEYS"
 
     (it "is an invalid literal expression"
@@ -258,30 +286,30 @@
     (expect
      (with-simulated-input "hello"      ; No RET
        (read-string "Enter a string: "))
-     :to-throw 'error '("Reached end of simulated input while evaluating body")))
+     :to-throw 'error))
 
   (it "should throw an error if the input is empty and BODY reads input"
     (expect
      (with-simulated-input nil
        (read-string "Enter a string: "))
-     :to-throw 'error '("Reached end of simulated input while evaluating body"))
+     :to-throw 'error)
     (expect
      (with-simulated-input '()
        (read-string "Enter a string: "))
-     :to-throw 'error '("Reached end of simulated input while evaluating body"))
+     :to-throw 'error)
     (expect
      (with-simulated-input ()
        (read-string "Enter a string: "))
-     :to-throw 'error '("Reached end of simulated input while evaluating body"))
+     :to-throw 'error)
     (expect
      (with-simulated-input '(nil)
        (read-string "Enter a string: "))
-     :to-throw 'error '("Reached end of simulated input while evaluating body"))
+     :to-throw 'error)
     (let ((my-input nil))
       (expect
        (with-simulated-input my-input
          (read-string "Enter a string: "))
-       :to-throw 'error '("Reached end of simulated input while evaluating body"))))
+       :to-throw 'error)))
 
   (it "should not throw an error if the input is empty unless BODY reads input"
     (expect
@@ -325,6 +353,19 @@
              (read-string "Second word: ")))
      :to-equal '("hello" "world")))
 
+  (it "should allow an empty/constant BODY, with a warning"
+    ;; We need `eval' to ensure the macro is evalauted during the
+    ;; test, not while loading the file.
+    (eval
+     '(progn
+        (expect (with-simulated-input "Is SPC anybody SPC listening? RET")
+                :to-be nil)
+        (expect (with-simulated-input "Is SPC anybody SPC listening? RET" t)
+                :to-be t)
+        (expect (with-simulated-input "Is SPC anybody SPC listening? RET" 1 2 3)
+                :to-equal 3)))
+    (expect #'display-warning :to-have-been-called-times 3))
+
   (describe "used with `completing-read'"
 
     :var (completing-read-function)
@@ -353,7 +394,7 @@
       (expect
        (with-simulated-input "bl TAB C-j"
          (completing-read "Choose: " my-collection nil t))
-       :to-throw 'error '("Reached end of simulated input while evaluating body"))))
+       :to-throw 'error)))
 
   (describe "should not reproduce past issues:"
     ;; https://github.com/DarwinAwardWinner/with-simulated-input/issues/4
