@@ -39,7 +39,7 @@ put this outside any relevant `let' forms."
     '(progn
        ,@(cl-loop for expr in body
                   collect `(funcall (lambda () ,expr)))
-    lexical-binding)))
+       lexical-binding)))
 
 (defvar warnings-displayed-count 0
   "Count of warnings that have been displayed.")
@@ -216,9 +216,9 @@ during macro expansion will be caught as well."
            (read-string "Say hello: "))
          :to-equal "hello world"))
       (let ((my-lexical-var nil))
-        (with-simulated-input '("hello"
-                                (setq my-lexical-var t)
-                                "RET")
+        (with-simulated-input ("hello"
+                               (setq my-lexical-var t)
+                               "RET")
           (read-string "Enter a string: "))
         (expect my-lexical-var
                 :to-be-truthy)))
@@ -226,9 +226,9 @@ during macro expansion will be caught as well."
     (it "is evaluated at run time in a non-lexical environment"
       (let ((my-non-lexical-var nil))
         (eval
-         '(with-simulated-input '("hello"
-                                  (setq my-non-lexical-var t)
-                                  "RET")
+         '(with-simulated-input ("hello"
+                                 (setq my-non-lexical-var t)
+                                 "RET")
             (read-string "Enter a string: "))
          nil)
         (expect my-non-lexical-var
@@ -260,7 +260,7 @@ during macro expansion will be caught as well."
 
     (it "is thrown directly from expressions in KEYS"
       (expect
-       (with-simulated-input '("hello" (error "Throwing an error from KEYS") "RET")
+       (with-simulated-input ("hello" (error "Throwing an error from KEYS") "RET")
          (read-string "Enter a string: "))
        :to-throw 'error '("Throwing an error from KEYS")))
 
@@ -323,15 +323,15 @@ during macro expansion will be caught as well."
        (read-string "Enter a string: "))
      :to-throw 'error)
     (expect
-     (with-simulated-input '()
-       (read-string "Enter a string: "))
-     :to-throw 'error)
-    (expect
      (with-simulated-input ()
        (read-string "Enter a string: "))
      :to-throw 'error)
     (expect
-     (with-simulated-input '(nil)
+     (with-simulated-input '()
+       (read-string "Enter a string: "))
+     :to-throw 'error)
+    (expect
+     (with-simulated-input (nil)
        (read-string "Enter a string: "))
      :to-throw 'error)
     (let ((my-input nil))
@@ -346,11 +346,11 @@ during macro expansion will be caught as well."
        (+ 1 2))
      :not :to-throw)
     (expect
-     (with-simulated-input '()
+     (with-simulated-input ()
        (+ 1 2))
      :not :to-throw)
     (expect
-     (with-simulated-input ()
+     (with-simulated-input '()
        (+ 1 2))
      :not :to-throw)
     (expect
