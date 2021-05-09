@@ -14,7 +14,7 @@ For example:
 ```elisp
 (with-simulated-input
     "hello SPC world RET"
-  (read-string "Say hello: "))
+  (read-string "Say hello to the world: "))
 ```
 
 This would return the string `"hello world"`.
@@ -30,10 +30,15 @@ simulated interaction. For example, we can use Emacs Lisp code to
 enter "world" after entering "hello" via key sequence:
 
 ```elisp
-(with-simulated-input
-    '("hello SPC" (insert "world") "RET")
-  (read-string "Say hello: "))
+(let ((thing-to-greet "world"))
+  (with-simulated-input
+      ("hello SPC" (insert thing-to-greet) "RET")
+    (read-string "Say hello: ")))
 ```
+
+Note that the return values of any forms in the input list are
+ignored. Only the side effects matter. In this case, the side effect
+of `insert` is to insert "world" into the minibuffer.
 
 ## Simulating idleness
 
@@ -47,14 +52,12 @@ will return `"hello world"`.
 (run-with-idle-timer 500 nil 'insert "world")
 (with-simulated-input
     ;; Type "hello ", then "wait" 501 seconds, then type "RET"
-    '("hello SPC" (wsi-simulate-idle-time 501) "RET")
+    ("hello SPC" (wsi-simulate-idle-time 501) "RET")
   (read-string "Enter a string: "))
 ```
 
 Note that the example code above only *pretends* to be idle for 501
 seconds. It actually runs immediately.
-
-Get it from MELPA: https://stable.melpa.org/#/with-simulated-input
 
 ## Running the tests
 
