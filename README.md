@@ -36,9 +36,14 @@ enter "world" after entering "hello" via key sequence:
     (read-string "Say hello: ")))
 ```
 
-Note that the return values of any forms in the input list are
-ignored. Only the side effects matter. In this case, the side effect
-of `insert` is to insert "world" into the minibuffer.
+Note 1: The return values of any forms in the input list are ignored.
+Only the side effects matter. In this case, the side effect of
+`insert` is to insert "world" into the minibuffer.
+
+Note 2: Previous versions of `with-simulated-input` attempted to
+evalaute KEYS normally despite being a macro, so a quote was required
+in front of KEYS if it was a list. This is no longer the case as of
+version 3.0.
 
 ## Simulating idleness
 
