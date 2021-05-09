@@ -114,50 +114,6 @@ given the value of MODIFIERS and KEYS."
               (setq wsi-last-used-next-action-bind bind)))
      finally do (error "Could not find an unbound key with the specified modifiers"))))
 
-;;;###autoload
-(defun with-simulated-input-1 (main &rest keys)
-  "Internal `with-simulated-input' helper.
-
-MAIN is a zero-argument function containing the body forms to be
-evaluated, and KEYS is a list of key sequences (as strings) or
-other actions to simulate user interaction (as zero-argument
-functions, which are called only for their side effects)."
-  (let* ((next-action-key (wsi-get-unbound-key))
-         ;; Ensure we don't interfere with any outside catching.
-         (result-sym (make-symbol "result"))
-         (error-sym (make-symbol "error"))
-         (orig-buf (current-buffer))
-         (actions
-          (nconc
-           (list (lambda ()
-                   (switch-to-buffer orig-buf)
-                   (throw result-sym (funcall main))))
-           (cl-remove-if-not #'functionp keys)
-           (list (lambda ()
-                   (error "Aborted evaluation of BODY after reaching end of KEYS without returning")))))
-         (overriding-terminal-local-map
-          (if overriding-terminal-local-map
-              (copy-keymap overriding-terminal-local-map)
-            (make-sparse-keymap))))
-    (define-key overriding-terminal-local-map (kbd next-action-key)
-      (lambda ()
-        (interactive)
-        (condition-case data
-            (funcall (pop actions))
-          (error (throw error-sym data)))))
-    (catch result-sym
-      ;; Signals are not passed through `read-from-minibuffer'.
-      (let ((err (catch error-sym
-                   (execute-kbd-macro
-                    (kbd (mapconcat
-                          #'identity
-                          (nconc (list next-action-key)
-                                 (cl-loop for key in keys collect
-                                          (if (stringp key) key next-action-key))
-                                 (list next-action-key))
-                          " "))))))
-        (signal (car err) (cdr err))))))
-
 (defsubst wsi--looks-constant-p (expr)
   "Return non-nil if EXPR looks like a constant expression.
 
@@ -185,6 +141,7 @@ In this context, \"pure\" means that the expression has no side
 effects and its value depends only on its arguments. In general,
 this means that EXPR consists only of calls to pure functions,
 constants, and variables. In particular, any constant expression
+is pure.
 
 This function may return nil for some pure expressions, but if it
 returns non-nil, then EXPR is definitely pure."
@@ -239,6 +196,50 @@ generated for each one unless QUIET is non-nil."
         key))))
    ;; Anything else might be an expression with side effects.
    else collect key))
+
+;;;###autoload
+(defun with-simulated-input-1 (main &rest keys)
+  "Internal `with-simulated-input' helper.
+
+MAIN is a zero-argument function containing the body forms to be
+evaluated, and KEYS is a list of key sequences (as strings) or
+other actions to simulate user interaction (as zero-argument
+functions, which are called only for their side effects)."
+  (let* ((next-action-key (wsi-get-unbound-key))
+         ;; Ensure we don't interfere with any outside catching.
+         (result-sym (make-symbol "result"))
+         (error-sym (make-symbol "error"))
+         (orig-buf (current-buffer))
+         (actions
+          (nconc
+           (list (lambda ()
+                   (switch-to-buffer orig-buf)
+                   (throw result-sym (funcall main))))
+           (cl-remove-if-not #'functionp keys)
+           (list (lambda ()
+                   (error "Aborted evaluation of BODY after reaching end of KEYS without returning")))))
+         (overriding-terminal-local-map
+          (if overriding-terminal-local-map
+              (copy-keymap overriding-terminal-local-map)
+            (make-sparse-keymap))))
+    (define-key overriding-terminal-local-map (kbd next-action-key)
+      (lambda ()
+        (interactive)
+        (condition-case data
+            (funcall (pop actions))
+          (error (throw error-sym data)))))
+    (catch result-sym
+      ;; Signals are not passed through `read-from-minibuffer'.
+      (let ((err (catch error-sym
+                   (execute-kbd-macro
+                    (kbd (mapconcat
+                          #'identity
+                          (nconc (list next-action-key)
+                                 (cl-loop for key in keys collect
+                                          (if (stringp key) key next-action-key))
+                                 (list next-action-key))
+                          " "))))))
+        (signal (car err) (cdr err))))))
 
 ;;;###autoload
 (defmacro with-simulated-input (keys &rest body)
