@@ -301,10 +301,11 @@ not be used in newly written code, since they will stop working
 in a future release.)"
   (declare
    (indent 1)
-   (debug ([&or ("quote" (&rest &or stringp form)) ; quoted list of string-or-form
-                (&rest &or stringp form) ; un-quoted same
-                stringp                  ; literal string
-                symbolp                  ; variable name (or nil)
+   (debug ([&or ("quote" (&rest &or stringp characterp form)) ; quoted list of keys
+                (&rest &or stringp characterp form) ; un-quoted list of keys
+                stringp                 ; single literal string
+                characterp              ; single literal character
+                symbolp                 ; single variable name (or nil)
                 ([&or functionp macrop] &rest form) ; arbitrary lisp function call
                 ]
            body)))
