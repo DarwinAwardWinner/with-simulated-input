@@ -226,15 +226,17 @@ generated for each one unless QUIET is non-nil."
       ;; type of pure expression
       (concat
        "Non-string forms in KEYS are evaluated for side effects only. "
-       (cond
-        ((functionp key)
-         "Functions in KEYS have no effect unless they are called.")
-        ((wsi--looks-constant-p key)
-         "Non-string constants in KEYS have no effect.")
-        ((symbolp key)
-         "Variables in KEYS have no effect.")
-        (t
-         "Pure expressions in KEYS have no effect.")))))
+       (format
+        (cond
+         ((functionp key)
+          "Functions in KEYS have no effect unless they are called: %S")
+         ((wsi--looks-constant-p key)
+          "Non-string constants in KEYS have no effect: %S")
+         ((symbolp key)
+          "Variables in KEYS have no effect: %S")
+         (t
+          "Pure expressions in KEYS have no effect: %S"))
+        key))))
    ;; Anything else might be an expression with side effects.
    else collect key))
 
@@ -309,7 +311,6 @@ in a future release.)"
                 ([&or functionp macrop] &rest form) ; arbitrary lisp function call
                 ]
            body)))
-  ;; TODO Support integers (i.e. single characters) in KEYS
   (cond
    ;; This case applies when BODY consists of only constant
    ;; expressions (or no expressions at all). Since all the
@@ -346,6 +347,9 @@ in a future release.)"
    ;; values are currently supported for backwards-compatibility, but
    ;; are deprecated.)
    ((and keys (symbolp keys))
+    (when (keywordp keys)
+      (error "KEYS must be a string, character, or list, not keyword: %s"
+             keys))
     `(cond
       ((null ,keys)
        (with-simulated-input-1
@@ -376,7 +380,7 @@ in a future release.)"
          else if (characterp key) collect (key-description (string key))
          else if key collect `(lambda () ,key))))
       (t
-       (error "KEYS must be a string or list, not %s: %s = %S"
+       (error "KEYS must be a string, character, or list, not %s: %s = %S"
               (type-of ,keys) ',keys ,keys))))
    ;; If KEYS is a list whose first element is not `quote', then it is
    ;; a function call, whose return value will be used as the value of
@@ -387,7 +391,9 @@ in a future release.)"
              (macrop (car keys))))
     (display-warning
      'with-simulated-input
-     "Passing a function call as KEYS is deprecated and will not be supported in future releases.")
+     (format
+      "Passing a function call as KEYS is deprecated and will not be supported in future releases: %S"
+      keys))
     (let ((evaluated-keys-sym (make-symbol "evaluated-keys")))
       `(let ((,evaluated-keys-sym (,@keys)))
          (pcase ,evaluated-keys-sym
@@ -410,13 +416,23 @@ in a future release.)"
    ;; un-quoted list of strings and list expressions to execute as
    ;; input.
    (t
+    ;; Unwrap a quoted expression
     (pcase keys
       (`(quote ,x)
-       (prog1 (setq keys x)
-         (display-warning
-          'with-simulated-input
-          "Passing a quoted list as KEYS is deprecated and will not be supported in future releases.")))
-      ((guard (not (listp keys))) (cl-callf list keys)))
+       (display-warning
+        'with-simulated-input
+        (format
+         "Passing a quoted list as KEYS is deprecated and will not be supported in future releases: %S" keys))
+       (setq keys x)))
+    ;; Ensure KEYS has the correct type, and convert a non-list keys
+    ;; into a 1-element list.
+    (unless (listp keys)
+      (if (or (null keys)
+              (stringp keys)
+              (characterp keys))
+          (setq keys (list keys))
+        (error "KEYS must be a string, character, or list, not %s: KEYS = %S"
+               (type-of keys) keys)))
     `(with-simulated-input-1
       (lambda ()
         ,@body)

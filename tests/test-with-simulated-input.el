@@ -9,6 +9,10 @@
 (defvar my-non-lexical-var)
 
 (defun call-wsi-from-bytecomp-fun ()
+  "This function calls `with-simulated-input' and is byte-compiled.
+
+It will only work if `with-simulated-input' works when called
+from byte-compiled code."
   (with-simulated-input "hello SPC world RET"
     (read-string "Say hello: ")))
 (byte-compile 'call-wsi-from-bytecomp-fun)
@@ -83,16 +87,14 @@ during macro expansion will be caught as well."
          (read-char "Choose your character: "))
        :to-equal ?y))
 
-    ;; Deprecated
-    (it "is a quoted list of literal strings"
+    (it "is a quoted list of literal strings (deprecated)"
       (expect-warning
        (expect
         (with-simulated-input '("hello" "RET")
           (read-string "Enter a string: "))
         :to-equal "hello")))
 
-    ;; Deprecated
-    (it "is a quoted list of characters"
+    (it "is a quoted list of characters (deprecated)"
       (expect-warning
        (expect
         ;; 10 is RET
@@ -100,16 +102,14 @@ during macro expansion will be caught as well."
           (read-string "Enter a string: "))
         :to-equal "hello")))
 
-    ;; Deprecated
-    (it "is a quoted list of lisp forms"
+    (it "is a quoted list of lisp forms (deprecated)"
       (expect-warning
        (expect
         (with-simulated-input '((insert "hello") (exit-minibuffer))
           (read-string "Enter a string: "))
         :to-equal "hello")))
 
-    ;; Deprecated
-    (it "is a quoted list of strings, characters, and lisp forms"
+    (it "is a quoted list of strings, characters, and lisp forms (deprecated)"
       (expect-warning
        (expect
         (with-simulated-input '((insert "hello") "RET")
@@ -165,7 +165,7 @@ during macro expansion will be caught as well."
          (read-string "Enter a string: "))
        :to-equal "hello world")
       (expect
-       (with-simulated-input '("hello SPC" (insert "wor") ?l ?d 10)
+       (with-simulated-input ("hello SPC" (insert "wor") ?l ?d 10)
          (read-string "Enter a string: "))
        :to-equal "hello world"))
 
@@ -184,8 +184,7 @@ during macro expansion will be caught as well."
            :to-equal "hello")))
 
     ;; This syntax is not known to be used in any real code.
-    ;; Deprecated.
-    (it "is an arbitrary expression evaluating to any of the above"
+    (it "is an arbitrary expression evaluating to any of the above (deprecated)"
       (expect-warning
        (expect
         (with-simulated-input (list "hello" "RET")
@@ -237,20 +236,22 @@ during macro expansion will be caught as well."
 
     ;; This syntax is not known to be used in any real code
     (it "is evaluated at run time in a lexical environment"
-      (let ((my-input "hello"))
-        (expect
-         (with-simulated-input `((insert ,my-input) "RET")
-           (read-string "Enter a string: "))
-         :to-equal "hello"))
-      (let ((greeting "hello")
-            (target "world"))
-        (expect
-         (with-simulated-input
-             (list greeting "SPC"
-                   (list 'insert target)
-                   "RET")
-           (read-string "Say hello: "))
-         :to-equal "hello world"))
+      (expect-warning
+       (let ((my-input "hello"))
+         (expect
+          (with-simulated-input `((insert ,my-input) "RET")
+            (read-string "Enter a string: "))
+          :to-equal "hello")))
+      (expect-warning
+       (let ((greeting "hello")
+             (target "world"))
+         (expect
+          (with-simulated-input
+              (list greeting "SPC"
+                    (list 'insert target)
+                    "RET")
+            (read-string "Say hello: "))
+          :to-equal "hello world")))
       (let ((my-lexical-var nil))
         (with-simulated-input ("hello"
                                (setq my-lexical-var t)
@@ -274,12 +275,14 @@ during macro expansion will be caught as well."
 
     (it "is an invalid literal expression"
       (expect
-       (with-simulated-input :invalid-input
-         (read-string "Enter a string: "))
+       ;; Eval prevents eager macro-expansion, since this macro
+       ;; expansion throws an error.
+       (eval '(with-simulated-input :invalid-input
+                (read-string "Enter a string: ")))
        :to-throw 'error)
       (expect
-       (with-simulated-input ["vectors" "are" "invalid"]
-         (read-string "Enter a string: "))
+       (eval '(with-simulated-input ["vectors" "are" "invalid"]
+                (read-string "Enter a string: ")))
        :to-throw 'error))
 
     (it "is a variable with an invalid value"
@@ -362,14 +365,15 @@ during macro expansion will be caught as well."
      (with-simulated-input ()
        (read-string "Enter a string: "))
      :to-throw 'error)
-    (expect
-     (with-simulated-input '()
-       (read-string "Enter a string: "))
-     :to-throw 'error)
-    (expect
-     (with-simulated-input (nil)
-       (read-string "Enter a string: "))
-     :to-throw 'error)
+    (expect-warning
+     (expect
+      (with-simulated-input '()
+        (read-string "Enter a string: "))
+      :to-throw 'error)
+     (expect
+      (with-simulated-input (nil)
+        (read-string "Enter a string: "))
+      :to-throw 'error))
     (let ((my-input nil))
       (expect
        (with-simulated-input my-input
@@ -385,14 +389,15 @@ during macro expansion will be caught as well."
      (with-simulated-input ()
        (+ 1 2))
      :not :to-throw)
-    (expect
-     (with-simulated-input '()
-       (+ 1 2))
-     :not :to-throw)
-    (expect
-     (with-simulated-input '(nil)
-       (+ 1 2))
-     :not :to-throw)
+    (expect-warning
+     (expect
+      (with-simulated-input '()
+        (+ 1 2))
+      :not :to-throw)
+     (expect
+      (with-simulated-input '(nil)
+        (+ 1 2))
+      :not :to-throw))
     (let ((my-input nil))
       (expect
        (with-simulated-input my-input
@@ -407,7 +412,7 @@ during macro expansion will be caught as well."
      :to-equal "hello")
     (expect
      (with-simulated-input
-         '("hello RET" (error "Throwing an error after BODY has completeld."))
+         ("hello RET" (error "Throwing an error after BODY has completed."))
        (read-string "Enter a string: "))
      :to-equal "hello"))
 
@@ -572,9 +577,9 @@ Note that there are multiple ways to represent a time, so
       (run-with-idle-timer 500 nil 'insert "world")
       (expect
        (with-simulated-input
-           '("hello SPC"
-             (wsi-simulate-idle-time 501)
-             "RET")
+           ("hello SPC"
+            (wsi-simulate-idle-time 501)
+            "RET")
          (read-string "Enter a string: "))
        :to-equal "hello world"))))
 
