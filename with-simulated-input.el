@@ -158,6 +158,85 @@ functions, which are called only for their side effects)."
                           " "))))))
         (signal (car err) (cdr err))))))
 
+(defsubst wsi--looks-constant-p (expr)
+  "Return non-nil if EXPR looks like a constant expression.
+
+This function may return nil for some constant expressions, but if
+it returns non-nil, then EXPR is definitely constant.
+\"Constant\" means that EXPR will always evaluate to the same
+value and will never have side effects. In general, this means
+that EXPR consists only of calls to pure functions with constant
+arguments."
+  (pcase expr
+    ((pred hack-one-local-variable-constantp) t)
+    ;; Any symbol not matched by the above is a variable, i.e. not
+    ;; constant.
+    ((pred symbolp) nil)
+    ((pred atom) t)
+    ((pred functionp) t)
+    ;; Quoted expressions are constant
+    (`(quote ,x) t)
+    (`(function ,x) t)))
+
+(defsubst wsi--looks-pure-p (expr)
+  "Return non-nil if EXPR looks like a pure expression.
+
+In this context, \"pure\" means that the expression has no side
+effects and its value depends only on its arguments. In general,
+this means that EXPR consists only of calls to pure functions,
+constants, and variables. In particular, any constant expression
+
+This function may return nil for some pure expressions, but if it
+returns non-nil, then EXPR is definitely pure."
+  ;; TODO: Use the pure/side-effect-free symbol properties to more
+  ;; aggressively identify expressions that will not read input/have
+  ;; side effects.
+  (pcase expr
+    ((pred symbolp) t)
+    ((pred wsi--looks-constant-p) t)))
+
+(defsubst wsi--looks-input-free-p (expr)
+  "Return non-nil if EXPR definitely does not read input.
+
+This function may return nil for some expressions that don't read
+input, but if it returns non-nil, then EXPR definitely does not
+read input."
+  (wsi--looks-pure-p expr))
+
+(defun wsi--remove-irrelevant-keys (keys &optional quiet)
+  "Filter out irrelevant elements from KEYS.
+
+Helper function for `with-simulated-input'. The only relevant
+elements of KEYS are strings, nil, and expressions that will have
+side effects (e.g. `(insert \"hello\")'). Other elements are
+filtered out, and an appropriate warning is generated for each
+one unless QUIET is non-nil."
+  (cl-loop
+   for key in keys
+   if (stringp key) collect key
+   ;; It is occasionally useful to include nil as an element of
+   ;; KEYS, so we don't produce a warning for it.
+   else if (null key) do (ignore)
+   else if (wsi--looks-pure-p key) do
+   (unless quiet
+     (display-warning
+      'with-simulated-input-1
+      ;; Generate an appropriate warning message for the specific
+      ;; type of pure expression
+      (concat
+       "Non-string forms in KEYS are evaluated for side effects only. "
+       (cond
+        ((functionp key)
+         "Functions in KEYS have no effect unless they are called.")
+        ((wsi--looks-constant-p key)
+         "Non-string constants in KEYS have no effect.")
+        ((symbolp key)
+         "Variables in KEYS have no effect.")
+        (t
+         "Pure expressions in KEYS have no effect.")))))
+   ;; Anything else might be an expression with side effects.
+   else collect key))
+
 ;;;###autoload
 (defmacro with-simulated-input (keys &rest body)
   "Eval BODY forms with KEYS as simulated input.
@@ -210,13 +289,22 @@ in `progn'."
    ;; them except the last one, and there's no possibility that any
    ;; input will be read, so we can skip all the proprocessing and
    ;; just return the last element of BODY.
-   ((not (cl-find-if-not #'hack-one-local-variable-constantp body))
+   ((not (cl-find-if-not #'wsi--looks-constant-p body))
     (display-warning
      'with-simulated-input
      (if body
          "BODY consists of only constant expressions; KEYS will be ignored."
        "BODY is empty; KEYS will be ignored."))
     (car (last body)))
+   ;; This case applies when BODY is not constant, but *is* known not
+   ;; to contain any expressions that read input. In this case, all
+   ;; expressions in BODY need to be evaluated, but KEYS can still be
+   ;; ignored.
+   ((not (cl-find-if-not #'wsi--looks-input-free-p body))
+    (display-warning
+     'with-simulated-input
+     "BODY does not read input; KEYS will be ignored.")
+    `(progn ,@body))
    ;; If KEYS is nil, we don't have to do any pre-processing on it. We
    ;; still need to call `with-simulated-input-1', which will evaluate
    ;; BODY and throw an error if it tries to read input.
@@ -226,8 +314,9 @@ in `progn'."
         ,@body)
       nil))
    ;; If KEYS is a symbol, then it is a variable reference. This is
-   ;; kind of janky and should probably be deprecated, except possibly
-   ;; in the case where it evaluates to a string.
+   ;; supported if the value is a string or nil. (Other values are
+   ;; currently supported for backwards-compatibility, but are
+   ;; deprecated.)
    ((and keys (symbolp keys))
     `(cond
       ((null ,keys)
@@ -249,20 +338,9 @@ in `progn'."
         (lambda ()
           ,@body)
         (cl-loop
-           for key in ,keys
-           if (stringp key) collect key
-           ;; It is occasionally useful to include nil as an element of
-           ;; KEYS, so we don't produce a warning for it.
-           else if (null key) do (ignore)
-           else if (hack-one-local-variable-constantp key) do
-           (display-warning
-            'with-simulated-input-1
-            "Non-string forms in KEYS are evaluated for side effects only. Non-string constants in KEYS have no effect.")
-           else if (symbolp key) do
-           (display-warning
-            'with-simulated-input-1
-            "Non-string forms in KEYS are evaluated for side effects only. Variables in KEYS have no effect.")
-           else collect `(lambda () ,key))))
+         for key in (wsi--remove-irrelevant-keys ,keys)
+         if (stringp key) collect key
+         else if key collect `(lambda () ,key))))
       (t
        (error "KEYS must be a string or list, not %s: %s = %S"
               (type-of ,keys) ',keys ,keys))))
@@ -290,20 +368,9 @@ in `progn'."
           (lambda ()
             ,@body)
           (cl-loop
-           for key in ,evaluated-keys-sym
+           for key in (wsi--remove-irrelevant-keys ,evaluated-keys-sym)
            if (stringp key) collect key
-           ;; It is occasionally useful to include nil as an element of
-           ;; KEYS, so we don't produce a warning for it.
-           else if (null key) do (ignore)
-           else if (hack-one-local-variable-constantp key) do
-           (display-warning
-            'with-simulated-input-1
-            "Non-string forms in KEYS are evaluated for side effects only. Non-string constants in KEYS have no effect.")
-           else if (symbolp key) do
-           (display-warning
-            'with-simulated-input-1
-            "Non-string forms in KEYS are evaluated for side effects only. Variables in KEYS have no effect.")
-           else collect `(lambda () ,key))))))
+           else if key collect `(lambda () ,key))))))
    ;; The primary supported KEYS syntax: either a string, or an
    ;; un-quoted list of strings and list expressions to execute as
    ;; input.
@@ -319,20 +386,9 @@ in `progn'."
       (lambda ()
         ,@body)
       ,@(cl-loop
-         for key in keys
+         for key in (wsi--remove-irrelevant-keys keys)
          if (stringp key) collect key
-         ;; It is occasionally useful to include nil as an element of
-         ;; KEYS, so we don't produce a warning for it.
-         else if (null key) do (ignore)
-         else if (hack-one-local-variable-constantp key) do
-         (display-warning
-          'with-simulated-input-1
-          "Non-string forms in KEYS are evaluated for side effects only. Non-string constants in KEYS have no effect.")
-         else if (symbolp key) do
-         (display-warning
-          'with-simulated-input-1
-          "Non-string forms in KEYS are evaluated for side effects only. Variables in KEYS have no effect.")
-         else collect `(lambda () ,key))))))
+         else if key collect `(lambda () ,key))))))
 
 (defvar wsi-simulated-idle-time nil
   "The current simulated idle time.
