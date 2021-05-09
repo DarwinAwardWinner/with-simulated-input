@@ -207,13 +207,14 @@ read input."
   "Filter out irrelevant elements from KEYS.
 
 Helper function for `with-simulated-input'. The only relevant
-elements of KEYS are strings, nil, and expressions that will have
-side effects (e.g. `(insert \"hello\")'). Other elements are
-filtered out, and an appropriate warning is generated for each
-one unless QUIET is non-nil."
+elements of KEYS are strings, characters, nil, and expressions
+that will have side effects (e.g. `(insert \"hello\")'). Other
+elements are filtered out, and an appropriate warning is
+generated for each one unless QUIET is non-nil."
   (cl-loop
    for key in keys
    if (stringp key) collect key
+   else if (characterp key) collect key
    ;; It is occasionally useful to include nil as an element of
    ;; KEYS, so we don't produce a warning for it.
    else if (null key) do (ignore)
@@ -253,13 +254,16 @@ typing in some text and pressing RET, KEYS would be something
 like `\"hello RET\"'. Note that spaces must be indicated
 explicitly using `SPC', e.g. `\"hello SPC world RET\"'.
 
-KEYS can also be a list of strings, which will be used as
-consecutive inputs. (This list should not be quoted, since
-`with-simulated-input' is a macro.) Elements of the list can also
-be function calls, which will be evaluated at that point in the
-input sequence. This can be used as an alternative to writing out
-a full key sequence. For example, `\"hello SPC world RET\"' could
-also be written as:
+KEYS can also be a single character, which is equivalent to a
+string of length 1.
+
+KEYS can also be a list of strings (or characters), which will be
+used as consecutive inputs. (This list should not be quoted,
+since `with-simulated-input' is a macro.) Elements of the list
+can also be function calls, which will be evaluated at that point
+in the input sequence. This can be used as an alternative to
+writing out a full key sequence. For example, `\"hello SPC world
+RET\"' could also be written as:
 
     `((insert \"hello world\") \"RET\")'
 
@@ -337,9 +341,9 @@ in a future release.)"
         ,@body)
       nil))
    ;; If KEYS is a symbol, then it is a variable reference. This is
-   ;; supported if the value is a string or nil. (Other values are
-   ;; currently supported for backwards-compatibility, but are
-   ;; deprecated.)
+   ;; supported if the value is a string, a character, or nil. (Other
+   ;; values are currently supported for backwards-compatibility, but
+   ;; are deprecated.)
    ((and keys (symbolp keys))
     `(cond
       ((null ,keys)
@@ -352,6 +356,11 @@ in a future release.)"
         (lambda ()
           ,@body)
         ,keys))
+      ((characterp ,keys)
+       (with-simulated-input-1
+        (lambda ()
+          ,@body)
+        (key-description (string ,keys))))
       ((consp ,keys)
        (display-warning
         'with-simulated-input
@@ -363,6 +372,7 @@ in a future release.)"
         (cl-loop
          for key in (wsi--remove-irrelevant-keys ,keys)
          if (stringp key) collect key
+         else if (characterp key) collect (key-description (string key))
          else if key collect `(lambda () ,key))))
       (t
        (error "KEYS must be a string or list, not %s: %s = %S"
@@ -393,6 +403,7 @@ in a future release.)"
           (cl-loop
            for key in (wsi--remove-irrelevant-keys ,evaluated-keys-sym)
            if (stringp key) collect key
+           else if (characterp key) collect (key-description (string key))
            else if key collect `(lambda () ,key))))))
    ;; The primary supported KEYS syntax: either a string, or an
    ;; un-quoted list of strings and list expressions to execute as
@@ -411,6 +422,7 @@ in a future release.)"
       ,@(cl-loop
          for key in (wsi--remove-irrelevant-keys keys)
          if (stringp key) collect key
+         else if (characterp key) collect (key-description (string key))
          else if key collect `(lambda () ,key))))))
 
 (defvar wsi-simulated-idle-time nil

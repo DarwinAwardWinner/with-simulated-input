@@ -77,11 +77,26 @@ during macro expansion will be caught as well."
          (read-string "Enter a string: "))
        :to-equal "hello"))
 
+    (it "is a literal character"
+      (expect
+       (with-simulated-input ?y
+         (read-char "Choose your character: "))
+       :to-equal ?y))
+
     ;; Deprecated
     (it "is a quoted list of literal strings"
       (expect-warning
        (expect
         (with-simulated-input '("hello" "RET")
+          (read-string "Enter a string: "))
+        :to-equal "hello")))
+
+    ;; Deprecated
+    (it "is a quoted list of characters"
+      (expect-warning
+       (expect
+        ;; 10 is RET
+        (with-simulated-input '(?h ?e ?l ?l ?o 10)
           (read-string "Enter a string: "))
         :to-equal "hello")))
 
@@ -94,7 +109,7 @@ during macro expansion will be caught as well."
         :to-equal "hello")))
 
     ;; Deprecated
-    (it "is a quoted list of strings and lisp forms"
+    (it "is a quoted list of strings, characters, and lisp forms"
       (expect-warning
        (expect
         (with-simulated-input '((insert "hello") "RET")
@@ -107,13 +122,26 @@ during macro expansion will be caught as well."
         :to-equal "hello"))
       (expect-warning
        (expect
+        ;; 10 is RET
         (with-simulated-input '("hello SPC" (insert "world") "RET")
+          (read-string "Enter a string: "))
+        :to-equal "hello world"))
+      (expect-warning
+       (expect
+        (with-simulated-input '("hello SPC" (insert "wor") ?l ?d 10)
           (read-string "Enter a string: "))
         :to-equal "hello world")))
 
     (it "is an un-quoted list of literal strings"
       (expect
        (with-simulated-input ("hello" "RET")
+         (read-string "Enter a string: "))
+       :to-equal "hello"))
+
+    (it "is a quoted list of characters"
+      (expect
+       ;; 10 is RET
+       (with-simulated-input (?h ?e ?l ?l ?o 10)
          (read-string "Enter a string: "))
        :to-equal "hello"))
 
@@ -134,6 +162,10 @@ during macro expansion will be caught as well."
        :to-equal "hello")
       (expect
        (with-simulated-input ("hello SPC" (insert "world") "RET")
+         (read-string "Enter a string: "))
+       :to-equal "hello world")
+      (expect
+       (with-simulated-input '("hello SPC" (insert "wor") ?l ?d 10)
          (read-string "Enter a string: "))
        :to-equal "hello world"))
 
