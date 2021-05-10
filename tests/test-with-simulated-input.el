@@ -46,24 +46,6 @@ from byte-compiled code."
        (wsi-get-unbound-key)
        :not :to-equal previous-key))))
 
-(defmacro progn-at-runtime (&rest body)
-  "Like `progn', but evaluate BODY entirely at runtime.
-
-This is useful if BODY involves macros and you want to defer the
-expansion of those macros until BODY is evaluated.
-
-Note: I don't recommend this function for general use, because it
-doesn't seem to properly put BODY in the correct lexical scope,
-but it's good enough for use in this test suite. Lexical scopes
-established *inside* BODY work just fine, so just make sure to
-put this outside any relevant `let' forms."
-  (declare (debug body))
-  `(eval
-    '(progn
-       ,@(cl-loop for expr in body
-                  collect `(funcall (lambda () ,expr)))
-       lexical-binding)))
-
 (defvar warnings-displayed-count 0
   "Count of warnings that have been displayed.")
 (defsubst reset-warnings-count (&optional n)
@@ -80,9 +62,10 @@ put this outside any relevant `let' forms."
 BODY is wrapped in `progn-at-runtime', so warnings produced
 during macro expansion will be caught as well."
   (declare (debug body))
-  `(let ((warnings-displayed-count 0))
-     (prog1 (progn-at-runtime ,@body)
-       (expect warnings-displayed-count :to-be-greater-than 0))))
+  `(progn
+     (spy-on #'display-warning :and-call-through)
+     (prog1 (progn ,@body)
+       (expect #'display-warning :to-have-been-called))))
 
 (describe "`with-simulated-input'"
 

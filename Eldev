@@ -9,3 +9,26 @@
 
 ;; Tell checkdoc not to demand two spaces after a period.
 (setq sentence-end-double-space nil)
+
+;; Disable eager macro expansion during test loading, so that macros
+;; get expanded *during* test execution, not before.
+(defvar internal-macroexpand-for-load-original-symbol-function
+  (symbol-function 'internal-macroexpand-for-load))
+
+(add-hook
+ 'eldev-before-loading-dependencies-hook
+ (lambda (type additional-sets)
+   ;; Execute before loading test deps. This hook is the closest I can
+   ;; find to "right before loading the test files".
+   (when (and type
+              (memq 'test (if (listp additional-sets)
+                              additional-sets
+                            (list additional-sets))))
+     (fmakunbound 'internal-macroexpand-for-load))))
+
+;; In order to minimize the possibility of disruption, put the
+;; function back after loading the tests.
+(add-hook 'eldev-test-buttercup-hook
+          (lambda (&rest _)
+            (fset 'internal-macroexpand-for-load
+                   internal-macroexpand-for-load-original-symbol-function)))
