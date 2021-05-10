@@ -28,7 +28,23 @@ from byte-compiled code."
     (expect
      (let ((wsi-last-used-next-action-bind nil))
        (wsi-get-unbound-key "" '("abc" "123")))
-     :to-throw 'error)))
+     :to-throw 'error))
+  (it "should find a new key when its previously chosen key becomes bound"
+    (let ((overriding-terminal-local-map (make-sparse-keymap))
+          (previous-key (wsi-get-unbound-key)))
+      (define-key overriding-terminal-local-map
+        (kbd previous-key) #'ignore)
+      ;; Claim another few unbound keys as well, just for good
+      ;; measure.
+      (define-key overriding-terminal-local-map
+        (kbd (wsi-get-unbound-key)) #'ignore)
+      (define-key overriding-terminal-local-map
+        (kbd (wsi-get-unbound-key)) #'ignore)
+      (define-key overriding-terminal-local-map
+        (kbd (wsi-get-unbound-key)) #'ignore)
+      (expect
+       (wsi-get-unbound-key)
+       :not :to-equal previous-key))))
 
 (defmacro progn-at-runtime (&rest body)
   "Like `progn', but evaluate BODY entirely at runtime.
@@ -434,7 +450,26 @@ during macro expansion will be caught as well."
              :to-be t))
     (expect-warning
      (expect (with-simulated-input "Is SPC anybody SPC listening? RET" 1 2 3)
+             :to-equal 3))
+    (expect-warning
+     (expect (let ((x (+ 1 2)))
+               (with-simulated-input "Is SPC anybody SPC listening? RET" x))
              :to-equal 3)))
+
+  (it "should work when `overriding-terminal-local-map' is bound"
+    (let ((overriding-terminal-local-map (make-sparse-keymap)))
+      ;; Claim the first few unbound keys to force
+      ;; `with-simulated-input' to find a new one.
+      (define-key overriding-terminal-local-map
+        (kbd (wsi-get-unbound-key)) #'ignore)
+      (define-key overriding-terminal-local-map
+        (kbd (wsi-get-unbound-key)) #'ignore)
+      (define-key overriding-terminal-local-map
+        (kbd (wsi-get-unbound-key)) #'ignore)
+      (expect
+       (with-simulated-input "hello RET"
+         (read-string "Enter a string: "))
+       :to-equal "hello")))
 
   (describe "used with `completing-read'"
 
