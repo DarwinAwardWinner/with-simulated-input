@@ -131,8 +131,8 @@ arguments."
     ((pred atom) t)
     ((pred functionp) t)
     ;; Quoted expressions are constant
-    (`(quote ,x) t)
-    (`(function ,x) t)))
+    (`(quote ,_x) t)
+    (`(function ,_x) t)))
 
 (defsubst wsi--looks-pure-p (expr)
   "Return non-nil if EXPR looks like a pure expression.
