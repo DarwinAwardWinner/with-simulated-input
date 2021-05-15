@@ -176,11 +176,17 @@ during macro expansion will be caught as well."
          ("hello" "RET")
          ((insert "hello") (exit-minibuffer))
          ((insert "hello") "RET")
-         ("hello" (exit-minibuffer)))
+         ("hello" (exit-minibuffer))
+         (?h ?e ?l ?l ?o 10))
        do (expect
            (with-simulated-input input
              (read-string "Enter a string: "))
-           :to-equal "hello")))
+           :to-equal "hello"))
+      (let ((answer-char ?y))
+        (expect
+         (with-simulated-input answer-char
+           (read-char "Choose your character: "))
+         :to-equal answer-char)))
 
     ;; This syntax is not known to be used in any real code.
     (it "is an arbitrary expression evaluating to any of the above (deprecated)"
