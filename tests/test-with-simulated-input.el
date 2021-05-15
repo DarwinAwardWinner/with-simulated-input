@@ -340,12 +340,12 @@ during macro expansion will be caught as well."
            (undesired-input "goodbye"))
        (expect
         (with-simulated-input
-            '((prog1 undesired-input
-                ;; This is the only thing that should actually get
-                ;; inserted.
-                (insert desired-input))
-              undesired-input
-              "RET")
+            ((prog1 undesired-input
+               ;; This is the only thing that should actually get
+               ;; inserted.
+               (insert desired-input))
+             undesired-input
+             "RET")
           (read-string "Enter a string: "))
         :to-equal desired-input))))
 
