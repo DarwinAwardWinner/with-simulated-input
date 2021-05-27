@@ -383,9 +383,9 @@ in a future release.)"
       (t
        (error "KEYS must be a string, character, or list, not %s: %s = %S"
               (type-of ,keys) ',keys ,keys))))
-   ;; If KEYS is a list whose first element is not `quote', then it is
-   ;; a function call, whose return value will be used as the value of
-   ;; KEYS. This is *definitely* deprecated.
+   ;; If KEYS is a list whose first element is a function other than
+   ;; `quote', then it is a function call, whose return value will be
+   ;; used as the value of KEYS. This is *definitely* deprecated.
    ((and (listp keys)
          (not (eq (car keys) 'quote))
          (or (functionp (car keys))
