@@ -46,21 +46,13 @@ from byte-compiled code."
        (wsi-get-unbound-key)
        :not :to-equal previous-key))))
 
-(defvar warnings-displayed-count 0
-  "Count of warnings that have been displayed.")
-(defsubst reset-warnings-count (&optional n)
-  (setq warnings-displayed-count (or n 0)))
-
-;; No `define-advice' on Emacs 24.
-(defun display-warning@count-calls (&rest _args)
-  (cl-incf warnings-displayed-count))
-(advice-add 'display-warning :before #'display-warning@count-calls)
-
 (defmacro expect-warning (&rest body)
   "Evaluate BODY and verify that it produces a warning.
 
-BODY is wrapped in `progn-at-runtime', so warnings produced
-during macro expansion will be caught as well."
+Note that in order to catch warnings produced during macro
+expansion, Eldev is configure to unbind the
+`internal-macroexpand-for-load' function while loading this test
+file."
   (declare (debug body))
   `(progn
      (spy-on #'display-warning :and-call-through)
