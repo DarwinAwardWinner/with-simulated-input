@@ -1,6 +1,8 @@
 # with-simulated-input
 
-[![MELPA Stable](https://stable.melpa.org/packages/with-simulated-input-badge.svg)](https://stable.melpa.org/#/with-simulated-input) [![Build Status](https://travis-ci.org/DarwinAwardWinner/with-simulated-input.svg?branch=master)](https://travis-ci.org/DarwinAwardWinner/with-simulated-input) [![Coverage Status](https://coveralls.io/repos/github/DarwinAwardWinner/with-simulated-input/badge.svg?branch=master)](https://coveralls.io/github/DarwinAwardWinner/with-simulated-input?branch=master)
+[![MELPA Stable](https://stable.melpa.org/packages/with-simulated-input-badge.svg)](https://stable.melpa.org/#/with-simulated-input)
+[![CI Status](https://github.com/DarwinAwardWinner/with-simulated-input/actions/workflows/test.yml/badge.svg)](https://github.com/DarwinAwardWinner/with-simulated-input/actions/workflows/test.yml)
+[![Coverage Status](https://coveralls.io/repos/github/DarwinAwardWinner/with-simulated-input/badge.svg?branch=master)](https://coveralls.io/github/DarwinAwardWinner/with-simulated-input?branch=master)
 
 This package provides an Emacs Lisp macro, `with-simulated-input`,
 which evaluates one or more forms while simulating a sequence of input
