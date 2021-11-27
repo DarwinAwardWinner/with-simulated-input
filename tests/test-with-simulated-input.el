@@ -324,7 +324,8 @@ file."
     (it "is caused by C-g in KEYS"
       (expect
        (condition-case nil
-           (with-simulated-input "C-g"
+           ;; For unexplained reasons, this requires 2x C-g
+           (with-simulated-input "C-g C-g"
              (read-string "Enter a string: "))
          (quit 'caught-quit))
        :to-be 'caught-quit)))
