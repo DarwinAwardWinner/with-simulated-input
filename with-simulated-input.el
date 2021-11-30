@@ -50,22 +50,38 @@
 (defvar wsi-last-used-next-action-bind nil
   "Last keybind used by `with-simulated-input', if any.")
 
+(defvar wsi--next-action-map (make-sparse-keymap)
+  "Internal keymap for use by `with-simulated-input'.")
+
+(defsubst wsi--clear-keymap (keymap)
+  "Unbind all keys in KEYMAP."
+  (if (keymapp keymap)
+      (setcdr keymap nil)
+    (error "Not a keymap: %S" keymap)))
+
+(defsubst wsi--activate-next-action-map ()
+  (internal-push-keymap wsi--next-action-map 'overriding-terminal-local-map))
+(defsubst wsi--deactivate-next-action-map ()
+  (internal-pop-keymap wsi--next-action-map 'overriding-terminal-local-map))
+
 (cl-defun wsi-key-bound-p (key)
   "Return non-nil if KEY is bound in any keymap.
 
 This function checks every keymap in `obarray' for a binding for
 KEY, and returns t if it finds and and nil otherwise. Note that
-this checks ALL keymaps, not just currently active ones."
+this checks ALL keymaps (except `wsi--next-action-map'), not just
+currently active ones."
   (catch 'bound
     (mapatoms
      (lambda (sym)
-       (let ((keymap
-              (when (boundp sym)
-                (symbol-value sym))))
-         (when (keymapp keymap)
-           (let ((binding (lookup-key keymap (kbd key))))
-             (when binding
-               (throw 'bound t)))))))
+       (unless (eq sym 'wsi--next-action-map)
+         (let ((keymap
+                (when (boundp sym)
+                  (symbol-value sym))))
+           (when (keymapp keymap)
+             (let ((binding (lookup-key keymap (kbd key))))
+               (when binding
+                 (throw 'bound t))))))))
     (throw 'bound nil)))
 
 (cl-defun wsi-get-unbound-key
@@ -217,12 +233,8 @@ functions, which are called only for their side effects)."
                    (throw result-sym (funcall main))))
            (cl-remove-if-not #'functionp keys)
            (list (lambda ()
-                   (error "Aborted evaluation of BODY after reaching end of KEYS without returning")))))
-         (overriding-terminal-local-map
-          (if overriding-terminal-local-map
-              (copy-keymap overriding-terminal-local-map)
-            (make-sparse-keymap))))
-    (define-key overriding-terminal-local-map (kbd next-action-key)
+                   (error "Aborted evaluation of BODY after reaching end of KEYS without returning"))))))
+    (define-key wsi--next-action-map (kbd next-action-key)
       (lambda ()
         (interactive)
         (condition-case data
@@ -230,15 +242,21 @@ functions, which are called only for their side effects)."
           (error (throw error-sym data)))))
     (catch result-sym
       ;; Signals are not passed through `read-from-minibuffer'.
-      (let ((err (catch error-sym
-                   (execute-kbd-macro
-                    (kbd (mapconcat
-                          #'identity
-                          (nconc (list next-action-key)
-                                 (cl-loop for key in keys collect
-                                          (if (stringp key) key next-action-key))
-                                 (list next-action-key))
-                          " "))))))
+      (let ((err
+             (catch error-sym
+               (unwind-protect
+                   (progn
+                     (wsi--activate-next-action-map)
+                     (execute-kbd-macro
+                      (kbd (mapconcat
+                            #'identity
+                            (nconc (list next-action-key)
+                                   (cl-loop for key in keys collect
+                                            (if (stringp key) key next-action-key))
+                                   (list next-action-key))
+                            " "))))
+                 (wsi--deactivate-next-action-map)
+                 (wsi--clear-keymap wsi--next-action-map)))))
         (signal (car err) (cdr err))))))
 
 ;;;###autoload

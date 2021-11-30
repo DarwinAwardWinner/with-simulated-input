@@ -438,7 +438,7 @@ file."
                (with-simulated-input "Is SPC anybody SPC listening? RET" x))
              :to-equal 3)))
 
-  (it "should work when `overriding-terminal-local-map' is bound"
+  (it "should not interfere with other use of `overriding-terminal-local-map'"
     (let ((overriding-terminal-local-map (make-sparse-keymap)))
       ;; Claim the first few unbound keys to force
       ;; `with-simulated-input' to find a new one.
@@ -448,10 +448,23 @@ file."
         (kbd (wsi-get-unbound-key)) #'ignore)
       (define-key overriding-terminal-local-map
         (kbd (wsi-get-unbound-key)) #'ignore)
+      ;; Verify that the key binding is cleaned up after a successful
+      ;; run...
       (expect
        (with-simulated-input "hello RET"
          (read-string "Enter a string: "))
-       :to-equal "hello")))
+       :to-equal "hello")
+      (expect
+       (commandp (lookup-key overriding-terminal-local-map wsi-last-used-next-action-bind))
+       :not :to-be-truthy)
+      ;; ...And also after throwin an error
+      (expect
+       (with-simulated-input "hello"
+         (read-string "Enter a string: "))
+       :to-throw)
+      (expect
+       (commandp (lookup-key overriding-terminal-local-map wsi-last-used-next-action-bind))
+       :not :to-be-truthy)))
 
   (describe "used with `completing-read'"
 
